@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) 
 
-# Fetch the gtest dependency
+# GoogleTest
 include(FetchContent)
 FetchContent_Declare(
 	googletest
@@ -13,18 +13,24 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
-# Library
-add_library(s3cpplib src/s3cpp/foo.cpp)
-target_include_directories(s3cpplib PUBLIC src)
+# cURL
+find_package(CURL)
 
-# App
+# Create lib and app
+add_library(s3cpplib 
+	src/s3cpp/httpclient.cpp
+)
+target_include_directories(s3cpplib PUBLIC src)
 add_executable(s3cpp_app main.cpp)
 target_link_libraries(s3cpp_app s3cpplib)
 
 # Tests
 enable_testing()
-add_executable(s3cpp_tests test/foo_test.cpp)
-target_link_libraries(s3cpp_tests s3cpplib GTest::gtest_main)
+add_executable(tests 
+	test/httpclient_test.cpp
+)
+
+target_link_libraries(tests s3cpplib GTest::gtest_main CURL::libcurl)
 
 include(GoogleTest)
-gtest_discover_tests(s3cpp_tests)
+gtest_discover_tests(tests)
