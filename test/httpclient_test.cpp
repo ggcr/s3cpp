@@ -1,8 +1,9 @@
-#include "s3cpp/httpclient.h"
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <exception>
+#include <format>
 #include <gtest/gtest.h>
+#include <s3cpp/httpclient.h>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
