@@ -22,13 +22,12 @@ HttpResponse HttpClient::get(const std::string &URL) {
 
   curl_easy_setopt(curl_handle, CURLOPT_URL, URL.c_str());
   curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
-  curl_easy_setopt(curl_handle, CURLOPT_ERRORBUFFER, &error_buf);
   curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &buffer);
 
   CURLcode code = curl_easy_perform(curl_handle);
   if (code != CURLE_OK) {
     throw std::runtime_error(
-        std::format("libcurl error for request: {}", error_buf));
+        std::format("libcurl error for request: {}", curl_easy_strerror(code)));
   }
 
   // get HTTP code
