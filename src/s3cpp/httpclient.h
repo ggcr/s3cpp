@@ -14,7 +14,7 @@ class HttpResponse {
 public:
   HttpResponse(int c, std::string b) : code_(c), body_(std::move(b)) {};
 
-  [[nodiscard]] int status() const { return code_; }
+  int status() const { return code_; }
   const std::string &body() const { return body_; }
 
   bool is_ok() const { return code_ >= 200 && code_ < 300; }
@@ -33,7 +33,7 @@ public:
   HttpRequest(HttpClient &client, std::string URL)
       : client_(client), URL_(std::move(URL)), timeout_(0) {};
 
-  [[nodiscard]] HttpRequest &header(const std::string &header,
+  [[nodiscard]] HttpRequest &header(const std::string &&header,
                                     const std::string &value) {
     headers_[header] = value;
     return *this;
@@ -43,16 +43,16 @@ public:
     return *this;
   }
 
-	HttpResponse execute();
+  HttpResponse execute();
 
-	std::string getURL() {return URL_;}
-	int getTimeout() {return timeout_;}
+  const std::string& getURL() const { return URL_; }
+  const int getTimeout() const { return timeout_; }
 
 private:
   HttpClient &client_;
   std::string URL_;
   std::unordered_map<std::string, std::string> headers_;
-  int timeout_;
+  int timeout_; // TODO(cristian): `std::chrono` ?
 };
 
 // HttpClient should only focus on handling the cURL handle

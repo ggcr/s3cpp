@@ -56,13 +56,14 @@ TEST(HTTP, HTTPBodyNonEmpty) {
 }
 
 TEST(HTTP, HTTPHandleTimeout) {
-	HttpClient client{};
+  HttpClient client{};
   try {
-    auto response = client.get("https://postman-echo.com/delay/10")
-			.timeout(1)
-			.execute();
-		FAIL () << "Client not handling 1s timeout on a 10s delayed request";
+    auto response =
+        client.get("https://postman-echo.com/delay/10").timeout(1).execute();
+    FAIL() << "Client not handling 1s timeout on a 10s delayed request";
   } catch (const std::exception &e) {
-		SUCCEED(); // libcurl error for request: Timeout was reached
+    SUCCEED(); // libcurl error for request: Timeout was reached
   }
 }
+
+// TODO(cristian): Headers extensive tests

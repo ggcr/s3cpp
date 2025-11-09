@@ -5,9 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-HttpResponse HttpRequest::execute() {
-	return client_.execute(*this);
-}
+HttpResponse HttpRequest::execute() { return client_.execute(*this); }
 
 HttpResponse HttpClient::execute(HttpRequest &request) {
   if (!curl_handle) {
