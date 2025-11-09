@@ -7,6 +7,7 @@
 
 HttpResponse HttpRequest::execute() { return client_.execute(*this); }
 
+
 HttpResponse HttpClient::execute(HttpRequest &request) {
   if (!curl_handle) {
     throw std::runtime_error(

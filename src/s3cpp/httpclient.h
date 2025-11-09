@@ -22,6 +22,10 @@ public:
   bool is_client_error() const { return code_ >= 400 && code_ < 500; }
   bool is_server_error() const { return code_ >= 500 && code_ < 600; }
 
+  bool operator==(const HttpResponse &other) const {
+    return (code_ == other.code_ && body_ == other.body_);
+  }
+
 private:
   int code_;
   std::string body_;
@@ -45,7 +49,7 @@ public:
 
   HttpResponse execute();
 
-  const std::string& getURL() const { return URL_; }
+  const std::string &getURL() const { return URL_; }
   const int getTimeout() const { return timeout_; }
 
 private:

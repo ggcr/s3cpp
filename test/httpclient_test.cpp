@@ -66,4 +66,24 @@ TEST(HTTP, HTTPHandleTimeout) {
   }
 }
 
+TEST(HTTP, HTTPRequestInDifferentPhases) {
+  HttpClient client{};
+  HttpRequest req = client.get("https://postman-echo.com/get").timeout(1);
+	auto responses = std::vector<HttpResponse>{};
+  try {
+    HttpResponse resp1 = client.execute(req);
+		responses.push_back(resp1);
+  } catch (const std::exception &e) {
+    SUCCEED(); // libcurl error for request: Timeout was reached
+  }
+  try {
+		HttpResponse resp2 = client.execute(req);
+		responses.push_back(resp2);
+  } catch (const std::exception &e) {
+    SUCCEED(); // libcurl error for request: Timeout was reached
+  }
+  ASSERT_EQ(responses.size(), 2);
+  ASSERT_EQ(responses[0], responses[1]);
+}
+
 // TODO(cristian): Headers extensive tests
