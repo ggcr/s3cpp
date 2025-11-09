@@ -5,6 +5,10 @@
 #include <curl/easy.h>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+
+// Forward declaration
+class HttpClient;
 
 class HttpResponse {
 public:
@@ -14,6 +18,7 @@ public:
   const std::string &body() const { return body_; }
 
   bool is_ok() const { return code_ >= 200 && code_ < 300; }
+  bool is_redirect() const { return code_ >= 300 && code_ < 400; }
   bool is_client_error() const { return code_ >= 400 && code_ < 500; }
   bool is_server_error() const { return code_ >= 500 && code_ < 600; }
 
@@ -22,6 +27,36 @@ private:
   std::string body_;
 };
 
+// HttpRequest will handle all the headers and request params
+class HttpRequest {
+public:
+  HttpRequest(HttpClient &client, std::string URL)
+      : client_(client), URL_(std::move(URL)), timeout_(0) {};
+
+  [[nodiscard]] HttpRequest &header(const std::string &header,
+                                    const std::string &value) {
+    headers_[header] = value;
+    return *this;
+  }
+  [[nodiscard]] HttpRequest &timeout(unsigned int seconds) {
+    timeout_ = seconds;
+    return *this;
+  }
+
+	HttpResponse execute();
+
+	std::string getURL() {return URL_;}
+	int getTimeout() {return timeout_;}
+
+private:
+  HttpClient &client_;
+  std::string URL_;
+  std::unordered_map<std::string, std::string> headers_;
+  int timeout_;
+};
+
+// HttpClient should only focus on handling the cURL handle
+// and making the request (HttpRequest) and returning HttpResponse
 class HttpClient {
 public:
   HttpClient() {
@@ -52,7 +87,11 @@ public:
     return *this;
   }
 
-  HttpResponse get(const std::string &URL);
+  [[nodiscard]] HttpRequest get(const std::string &URL) {
+    return HttpRequest{*this, URL};
+  };
+
+  HttpResponse execute(HttpRequest &request);
 
 private:
   CURL *curl_handle;

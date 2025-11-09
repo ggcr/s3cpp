@@ -12,7 +12,8 @@ TEST(HTTP, AllStatusCodes) {
   HttpClient client{};
   for (auto i : {200, 400, 401, 403, 404, 500, 502}) {
     HttpResponse request =
-        client.get(std::format("https://postman-echo.com/status/{}", i));
+        client.get(std::format("https://postman-echo.com/status/{}", i))
+            .execute();
     EXPECT_EQ(request.status(), i);
     EXPECT_EQ(request.is_ok(), (i >= 200 && i < 300));
     EXPECT_EQ(request.is_client_error(), (i >= 400 && i < 500));
@@ -36,19 +37,32 @@ TEST(HTTP, HTTPClientMoveOwnership) {
   const std::string URL = "https://postman-echo.com/status/200";
 
   // Invalidated client1 should throw runtime error
-  EXPECT_THROW(client1.get(URL), std::runtime_error);
-  EXPECT_EQ(client2.get(URL).status(), 200);
+  EXPECT_THROW(client1.get(URL).execute(), std::runtime_error);
+  EXPECT_EQ(client2.get(URL).execute().status(), 200);
 }
 
 TEST(HTTP, HTTPBodyNonEmpty) {
   HttpClient client{};
   try {
-    HttpResponse request = client.get("https://postman-echo.com/get?foo=bar");
+    HttpResponse request =
+        client.get("https://postman-echo.com/get?foo=bar").execute();
     EXPECT_TRUE(request.is_ok());
     EXPECT_EQ(
         request.body(),
         R"({"args":{"foo":"bar"},"headers":{"host":"postman-echo.com","accept-encoding":"gzip, br","x-forwarded-proto":"https","accept":"*/*"},"url":"https://postman-echo.com/get?foo=bar"})");
   } catch (const std::exception &e) {
     FAIL() << std::format("Request failed with exception: {}", e.what());
+  }
+}
+
+TEST(HTTP, HTTPHandleTimeout) {
+	HttpClient client{};
+  try {
+    auto response = client.get("https://postman-echo.com/delay/10")
+			.timeout(1)
+			.execute();
+		FAIL () << "Client not handling 1s timeout on a 10s delayed request";
+  } catch (const std::exception &e) {
+		SUCCEED(); // libcurl error for request: Timeout was reached
   }
 }

@@ -1,11 +1,15 @@
-#include <s3cpp/httpclient.h>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <format>
+#include <s3cpp/httpclient.h>
 #include <stdexcept>
 #include <string>
 
-HttpResponse HttpClient::get(const std::string &URL) {
+HttpResponse HttpRequest::execute() {
+	return client_.execute(*this);
+}
+
+HttpResponse HttpClient::execute(HttpRequest &request) {
   if (!curl_handle) {
     throw std::runtime_error(
         "cURL handle has been invalidated in favour of another client");
@@ -20,9 +24,10 @@ HttpResponse HttpClient::get(const std::string &URL) {
   //
   // curl_easy_reset(curl_handle);
 
-  curl_easy_setopt(curl_handle, CURLOPT_URL, URL.c_str());
+  curl_easy_setopt(curl_handle, CURLOPT_URL, request.getURL().c_str());
   curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
   curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &buffer);
+  curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, request.getTimeout());
 
   CURLcode code = curl_easy_perform(curl_handle);
   if (code != CURLE_OK) {
