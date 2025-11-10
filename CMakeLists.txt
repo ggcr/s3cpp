@@ -30,7 +30,7 @@ add_executable(tests
 	test/httpclient_test.cpp
 )
 
-target_link_libraries(tests s3cpplib GTest::gtest_main CURL::libcurl)
+target_link_libraries(tests s3cpplib GTest::gtest_main GTest::gmock_main CURL::libcurl)
 
 include(GoogleTest)
 gtest_discover_tests(tests)

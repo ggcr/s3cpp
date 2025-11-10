@@ -26,6 +26,7 @@ HttpResponse HttpClient::execute(HttpRequest &request) {
   curl_easy_setopt(curl_handle, CURLOPT_URL, request.getURL().c_str());
   curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
   curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &buffer);
+  curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "s3cpp/0.0.0 github.com/ggcr/s3cpp");
   curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, request.getTimeout());
 
   CURLcode code = curl_easy_perform(curl_handle);

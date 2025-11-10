@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <gmock/gmock.h>
 
 TEST(HTTP, AllStatusCodes) {
   HttpClient client{};
@@ -47,9 +48,8 @@ TEST(HTTP, HTTPBodyNonEmpty) {
     HttpResponse request =
         client.get("https://postman-echo.com/get?foo=bar").execute();
     EXPECT_TRUE(request.is_ok());
-    EXPECT_EQ(
-        request.body(),
-        R"({"args":{"foo":"bar"},"headers":{"host":"postman-echo.com","accept-encoding":"gzip, br","x-forwarded-proto":"https","accept":"*/*"},"url":"https://postman-echo.com/get?foo=bar"})");
+		EXPECT_THAT(request.body(), testing::HasSubstr("\"foo\":\"bar\""));
+
   } catch (const std::exception &e) {
     FAIL() << std::format("Request failed with exception: {}", e.what());
   }
