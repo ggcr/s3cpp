@@ -1,3 +1,4 @@
+#include <chrono>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <exception>
@@ -68,6 +69,7 @@ TEST(HTTP, HTTPHandleTimeout) {
 
 TEST(HTTP, HTTPRequestInDifferentPhases) {
   HttpClient client{};
+  // TODO(cristian): Allow for floating points on timeout?
   HttpRequest req = client.get("https://postman-echo.com/get").timeout(1);
   auto responses = std::vector<HttpResponse>{};
   try {
@@ -103,5 +105,28 @@ TEST(HTTP, HTTPRequestCastTimeout) {
 TEST(HTTP, HTTPClientDefaultHeadersOverwrittenByRequestHeaders) {
   // HttpClient allows setting headers once through a initializer list
   // this headers are then merged (and overriden) with the HttpRequest headers
-  HttpClient client{};
+  HttpClient client({
+      {"Authentication", "mytoken"},
+      {"User-Agent", "foo"},
+  });
+
+	// Send request with custom user-agent header, should override client header
+	for (const auto &val : {"foo", "bar"}) {
+
+		// Change the user-agent header from the request
+		HttpRequest request = client.get("https://postman-echo.com/get")
+			.timeout(10)
+			.header("User-Agent", val);
+
+		try {
+			auto resp = request.execute();
+
+			// request should work + having the new user-agent header each time
+			EXPECT_TRUE(resp.is_ok());
+			EXPECT_THAT(resp.body(), testing::HasSubstr(std::format("\"user-agent\":\"{}\"", val)));
+
+		} catch (const std::exception &e) {
+			FAIL() << std::format("Request failed: {}", e.what());
+		}
+	}
 }

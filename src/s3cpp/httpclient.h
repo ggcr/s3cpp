@@ -56,6 +56,7 @@ public:
 
   const std::string &getURL() const { return URL_; }
   const long long getTimeout() const { return timeout_.count(); }
+  const std::unordered_map<std::string, std::string>  &getHeaders() const { return headers_; }
 
 private:
   HttpClient &client_;
@@ -70,7 +71,7 @@ class HttpClient {
   friend class HttpRequest; // `execute()` is invoked from the request only
 public:
   HttpClient()
-      : client_headers_({{"User-Agent", "s3cpp/0.0.0 github.com/ggcr/s3cpp"}}) {
+      : headers_({{"User-Agent", "s3cpp/0.0.0 github.com/ggcr/s3cpp"}}) {
     curl_handle = curl_easy_init();
     if (!curl_handle)
       throw std::runtime_error("Failed to initialize cURL");
@@ -80,7 +81,10 @@ public:
       curl_easy_cleanup(curl_handle);
   };
   HttpClient(std::unordered_map<std::string, std::string> headers)
-      : client_headers_(std::move(headers)) {
+      : headers_(std::move(headers)) {
+    curl_handle = curl_easy_init();
+    if (!curl_handle)
+      throw std::runtime_error("Failed to initialize cURL");
   }
 
   HttpClient(const HttpClient &) = delete;
@@ -110,11 +114,13 @@ private:
   CURL *curl_handle = nullptr;
   static size_t write_callback(char *ptr, size_t size, size_t nmemb,
                                void *userdata);
-  std::unordered_map<std::string, std::string> client_headers_;
+  std::unordered_map<std::string, std::string> headers_;
 
   // main logic to perform the request
   // this is invoked by HttpRequest
   HttpResponse execute(HttpRequest &request);
+
+  const std::unordered_map<std::string, std::string> &getHeaders() const { return headers_; }
 };
 
 #endif

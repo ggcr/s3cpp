@@ -29,12 +29,18 @@ HttpResponse HttpClient::execute(HttpRequest &request) {
   curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &buffer);
   curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, request.getTimeout());
 
-  // set headers
-  // for ...
-  curl_easy_setopt(curl_handle, CURLOPT_USERAGENT,
-                   "s3cpp/0.0.0 github.com/ggcr/s3cpp");
+	// merge client and request headers
+	// https://stackoverflow.com/questions/34321719
+	auto headers = request.getHeaders();
+	headers.insert(this->getHeaders().begin(), this->getHeaders().end());
+	struct curl_slist *list = NULL;
+	for (const auto &[k, v] : headers) {
+		list = curl_slist_append(list, std::format("{}: {}", k, v).c_str());
+	}
+	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, list);
 
-  CURLcode code = curl_easy_perform(curl_handle);
+	CURLcode code = curl_easy_perform(curl_handle);
+	curl_slist_free_all(list);
   if (code != CURLE_OK) {
     throw std::runtime_error(
         std::format("libcurl error for request: {}", curl_easy_strerror(code)));
