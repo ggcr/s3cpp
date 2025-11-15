@@ -1,6 +1,7 @@
 #ifndef S3CPP_HTTPCLIENT
 #define S3CPP_HTTPCLIENT
 
+#include <chrono>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <stdexcept>
@@ -37,12 +38,16 @@ public:
   HttpRequest(HttpClient &client, std::string URL)
       : client_(client), URL_(std::move(URL)), timeout_(0) {};
 
-  [[nodiscard]] HttpRequest &header(const std::string &&header,
+  HttpRequest &header(const std::string &&header,
                                     const std::string &value) {
     headers_[header] = value;
     return *this;
   }
-  [[nodiscard]] HttpRequest &timeout(unsigned int seconds) {
+  HttpRequest &timeout(long long seconds) {
+    timeout_ = std::chrono::seconds(seconds);
+    return *this;
+  }
+  HttpRequest &timeout(std::chrono::seconds seconds) {
     timeout_ = seconds;
     return *this;
   }
@@ -50,13 +55,13 @@ public:
   HttpResponse execute();
 
   const std::string &getURL() const { return URL_; }
-  const int getTimeout() const { return timeout_; }
+  const long long getTimeout() const { return timeout_.count(); }
 
 private:
   HttpClient &client_;
   std::string URL_;
   std::unordered_map<std::string, std::string> headers_;
-  int timeout_; // TODO(cristian): `std::chrono` ?
+  std::chrono::seconds timeout_;
 };
 
 // HttpClient should only focus on handling the cURL handle

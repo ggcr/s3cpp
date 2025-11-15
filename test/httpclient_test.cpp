@@ -2,12 +2,12 @@
 #include <curl/easy.h>
 #include <exception>
 #include <format>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <s3cpp/httpclient.h>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-#include <gmock/gmock.h>
 
 TEST(HTTP, AllStatusCodes) {
   HttpClient client{};
@@ -48,7 +48,7 @@ TEST(HTTP, HTTPBodyNonEmpty) {
     HttpResponse request =
         client.get("https://postman-echo.com/get?foo=bar").execute();
     EXPECT_TRUE(request.is_ok());
-		EXPECT_THAT(request.body(), testing::HasSubstr("\"foo\":\"bar\""));
+    EXPECT_THAT(request.body(), testing::HasSubstr("\"foo\":\"bar\""));
 
   } catch (const std::exception &e) {
     FAIL() << std::format("Request failed with exception: {}", e.what());
@@ -69,21 +69,33 @@ TEST(HTTP, HTTPHandleTimeout) {
 TEST(HTTP, HTTPRequestInDifferentPhases) {
   HttpClient client{};
   HttpRequest req = client.get("https://postman-echo.com/get").timeout(1);
-	auto responses = std::vector<HttpResponse>{};
+  auto responses = std::vector<HttpResponse>{};
   try {
     HttpResponse resp1 = client.execute(req);
-		responses.push_back(resp1);
+    responses.push_back(resp1);
   } catch (const std::exception &e) {
     SUCCEED(); // libcurl error for request: Timeout was reached
   }
   try {
-		HttpResponse resp2 = client.execute(req);
-		responses.push_back(resp2);
+    HttpResponse resp2 = client.execute(req);
+    responses.push_back(resp2);
   } catch (const std::exception &e) {
     SUCCEED(); // libcurl error for request: Timeout was reached
   }
   ASSERT_EQ(responses.size(), 2);
   ASSERT_EQ(responses[0], responses[1]);
+}
+
+TEST(HTTP, HTTPRequestCastTimeout) {
+  // so timeout_ is a member variable which is casted from `unsigned int` to
+  // `std::chrono::seconds`, and then passed to cURL as long long
+  HttpClient client{};
+  // regular long overload
+  HttpRequest request = client.get("foo").timeout(1).timeout(2);
+  EXPECT_EQ(request.getTimeout(), 2);
+
+  request.timeout(std::chrono::hours(1));
+  EXPECT_EQ(request.getTimeout(), 3600);
 }
 
 // TODO(cristian): Headers extensive tests
