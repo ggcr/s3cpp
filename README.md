@@ -4,7 +4,7 @@
 
 ```bash
 $ mkdir build
-$ cmake -S. -Bbuild
+$ cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Debug
 $ cmake --build build/
 ```
 
