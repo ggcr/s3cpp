@@ -71,13 +71,13 @@ TEST(HTTP, HTTPRequestInDifferentPhases) {
   HttpRequest req = client.get("https://postman-echo.com/get").timeout(1);
   auto responses = std::vector<HttpResponse>{};
   try {
-    HttpResponse resp1 = client.execute(req);
+    HttpResponse resp1 = req.execute();
     responses.push_back(resp1);
   } catch (const std::exception &e) {
     SUCCEED(); // libcurl error for request: Timeout was reached
   }
   try {
-    HttpResponse resp2 = client.execute(req);
+    HttpResponse resp2 = req.execute();
     responses.push_back(resp2);
   } catch (const std::exception &e) {
     SUCCEED(); // libcurl error for request: Timeout was reached
@@ -87,15 +87,21 @@ TEST(HTTP, HTTPRequestInDifferentPhases) {
 }
 
 TEST(HTTP, HTTPRequestCastTimeout) {
-  // so timeout_ is a member variable which is casted from `unsigned int` to
-  // `std::chrono::seconds`, and then passed to cURL as long long
   HttpClient client{};
-  // regular long overload
+
+  // int (broadcasted to long)
   HttpRequest request = client.get("foo").timeout(1).timeout(2);
   EXPECT_EQ(request.getTimeout(), 2);
 
+  // std::chrono
   request.timeout(std::chrono::hours(1));
   EXPECT_EQ(request.getTimeout(), 3600);
 }
 
 // TODO(cristian): Headers extensive tests
+
+TEST(HTTP, HTTPClientDefaultHeadersOverwrittenByRequestHeaders) {
+  // HttpClient allows setting headers once through a initializer list
+  // this headers are then merged (and overriden) with the HttpRequest headers
+  HttpClient client{};
+}
