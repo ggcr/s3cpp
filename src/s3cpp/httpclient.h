@@ -70,11 +70,11 @@ private:
 class HttpClient {
   friend class HttpRequest; // `execute()` is invoked from the request only
 public:
-  HttpClient()
-      : headers_({{"User-Agent", "s3cpp/0.0.0 github.com/ggcr/s3cpp"}}) {
+  HttpClient() {
     curl_handle = curl_easy_init();
     if (!curl_handle)
       throw std::runtime_error("Failed to initialize cURL");
+		headers_["User-Agent"] = "s3cpp/0.0.0 github.com/ggcr/s3cpp";
   }
   ~HttpClient() {
     if (curl_handle)
@@ -85,6 +85,7 @@ public:
     curl_handle = curl_easy_init();
     if (!curl_handle)
       throw std::runtime_error("Failed to initialize cURL");
+		headers_["User-Agent"] = "s3cpp/0.0.0 github.com/ggcr/s3cpp";
   }
 
   HttpClient(const HttpClient &) = delete;

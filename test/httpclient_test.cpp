@@ -110,23 +110,46 @@ TEST(HTTP, HTTPClientDefaultHeadersOverwrittenByRequestHeaders) {
       {"User-Agent", "foo"},
   });
 
-	// Send request with custom user-agent header, should override client header
-	for (const auto &val : {"foo", "bar"}) {
+  // Send request with custom user-agent header, should override client header
+  for (const auto &val : {"foo", "bar"}) {
 
-		// Change the user-agent header from the request
-		HttpRequest request = client.get("https://postman-echo.com/get")
-			.timeout(10)
-			.header("User-Agent", val);
+    // Change the user-agent header from the request
+    HttpRequest request = client.get("https://postman-echo.com/get")
+                              .timeout(10)
+                              .header("User-Agent", val);
 
-		try {
-			auto resp = request.execute();
+    try {
+      auto resp = request.execute();
 
-			// request should work + having the new user-agent header each time
-			EXPECT_TRUE(resp.is_ok());
-			EXPECT_THAT(resp.body(), testing::HasSubstr(std::format("\"user-agent\":\"{}\"", val)));
+      // request should work + having the new user-agent header each time
+      EXPECT_TRUE(resp.is_ok());
+      EXPECT_THAT(resp.body(), testing::HasSubstr(
+                                   std::format("\"user-agent\":\"{}\"", val)));
 
-		} catch (const std::exception &e) {
-			FAIL() << std::format("Request failed: {}", e.what());
-		}
-	}
+    } catch (const std::exception &e) {
+      FAIL() << std::format("Request failed: {}", e.what());
+    }
+  }
+}
+
+TEST(HTTP, HTTPRemoveHeader) {
+  HttpClient client(std::unordered_map<std::string, std::string>({
+      {"User-Agent", "client"},
+  }));
+
+  // On libcurl passing an empty header removes it
+  //     curl_slist_append(list, "Header:");
+  // in which case, when merging request and client headers, if we remove a
+  // request one, the client one should also be removed!
+
+  try {
+    // Removes the User-Agent header
+    auto resp = client.get("https://postman-echo.com/get")
+                    .timeout(10)
+                    .header("User-Agent", "")
+                    .execute();
+    EXPECT_THAT(resp.body(), testing::Not(testing::HasSubstr("\"user-agent\":\"client\"")));
+  } catch (const std::exception &e) {
+    FAIL() << std::format("Request failed: {}", e.what());
+  }
 }
