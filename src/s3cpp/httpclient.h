@@ -2,6 +2,7 @@
 #define S3CPP_HTTPCLIENT
 
 #include <chrono>
+#include <cstddef>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <stdexcept>
@@ -38,11 +39,6 @@ public:
   HttpRequest(HttpClient &client, std::string URL)
       : client_(client), URL_(std::move(URL)), timeout_(0) {};
 
-  HttpRequest &header(const std::string &&header,
-                                    const std::string &value) {
-    headers_[header] = value;
-    return *this;
-  }
   HttpRequest &timeout(const long long &seconds) {
     timeout_ = std::chrono::seconds(seconds);
     return *this;
@@ -51,8 +47,8 @@ public:
     timeout_ = seconds;
     return *this;
   }
-  HttpRequest &header(const std::string &header, const std::string &value) {
-		headers_[header] = value;
+  HttpRequest &header(const std::string &header_, const std::string &value) {
+    headers_[header_] = value;
     return *this;
   }
 
@@ -71,9 +67,10 @@ private:
 // HttpClient should only focus on handling the cURL handle
 // and making the request (HttpRequest) and returning HttpResponse
 class HttpClient {
-	friend class HttpRequest; // `execute()` is invoked from the request only
+  friend class HttpRequest; // `execute()` is invoked from the request only
 public:
-  HttpClient() : client_headers_({{"User-Agent", "s3cpp/0.0.0 github.com/ggcr/s3cpp"}}) {
+  HttpClient()
+      : client_headers_({{"User-Agent", "s3cpp/0.0.0 github.com/ggcr/s3cpp"}}) {
     curl_handle = curl_easy_init();
     if (!curl_handle)
       throw std::runtime_error("Failed to initialize cURL");
@@ -82,7 +79,9 @@ public:
     if (curl_handle)
       curl_easy_cleanup(curl_handle);
   };
-	HttpClient(const std::unordered_map<std::string, std::string> &headers) {}
+  HttpClient(std::unordered_map<std::string, std::string> headers)
+      : client_headers_(std::move(headers)) {
+  }
 
   HttpClient(const HttpClient &) = delete;
   HttpClient &operator=(const HttpClient &) = delete;
@@ -102,20 +101,19 @@ public:
     return *this;
   }
 
-	// HTTP GET
+  // HTTP GET
   [[nodiscard]] HttpRequest get(const std::string &URL) {
     return HttpRequest{*this, URL};
   };
 
-
 private:
-  CURL *curl_handle;
+  CURL *curl_handle = nullptr;
   static size_t write_callback(char *ptr, size_t size, size_t nmemb,
                                void *userdata);
-	std::unordered_map<std::string, std::string> client_headers_;
-	
-	// main logic to perform the request
-	// this is invoked by HttpRequest
+  std::unordered_map<std::string, std::string> client_headers_;
+
+  // main logic to perform the request
+  // this is invoked by HttpRequest
   HttpResponse execute(HttpRequest &request);
 };
 
