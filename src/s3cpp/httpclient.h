@@ -12,8 +12,16 @@
 // Forward declaration
 class HttpClient;
 
+enum class HttpMethod {
+	Get,
+	Post,
+	Put,
+	Head
+};
+
 class HttpResponse {
 public:
+  HttpResponse(int c) : code_(c) {};
   HttpResponse(int c, std::string b) : code_(c), body_(std::move(b)) {};
 
   int status() const { return code_; }
@@ -36,8 +44,8 @@ private:
 // HttpRequest will handle all the headers and request params
 class HttpRequest {
 public:
-  HttpRequest(HttpClient &client, std::string URL)
-      : client_(client), URL_(std::move(URL)), timeout_(0) {};
+  HttpRequest(HttpClient &client, std::string URL, const HttpMethod &http_method)
+      : client_(client), URL_(std::move(URL)), http_method_(std::move(http_method)), timeout_(0) {};
 
   HttpRequest &timeout(const long long &seconds) {
     timeout_ = std::chrono::seconds(seconds);
@@ -63,6 +71,7 @@ private:
   std::string URL_;
   std::unordered_map<std::string, std::string> headers_;
   std::chrono::seconds timeout_;
+	HttpMethod http_method_;
 };
 
 // HttpClient should only focus on handling the cURL handle
@@ -108,7 +117,10 @@ public:
 
   // HTTP GET
   [[nodiscard]] HttpRequest get(const std::string &URL) {
-    return HttpRequest{*this, URL};
+    return HttpRequest{*this, URL, HttpMethod::Get};
+  };
+  [[nodiscard]] HttpRequest head(const std::string &URL) {
+    return HttpRequest{*this, URL, HttpMethod::Head};
   };
 
 private:
@@ -119,7 +131,8 @@ private:
 
   // main logic to perform the request
   // this is invoked by HttpRequest
-  HttpResponse execute(HttpRequest &request);
+  HttpResponse execute_get(HttpRequest &request);
+  HttpResponse execute_head(HttpRequest &request);
 
   const std::unordered_map<std::string, std::string> &getHeaders() const { return headers_; }
 };
