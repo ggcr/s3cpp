@@ -1,6 +1,7 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <format>
+#include <iostream>
 #include <s3cpp/httpclient.h>
 #include <stdexcept>
 #include <string>
@@ -25,7 +26,7 @@ HttpResponse HttpClient::execute_get(HttpRequest &request) {
         "cURL handle is invalid");
   }
   std::string body_buf;
-  std::unordered_map<std::string, std::string> headers_buf;
+  std::map<std::string, std::string> headers_buf;
   std::string error_buf;
 
   // TODO(cristian): from libcurl docs, they state that each curl handle has
@@ -66,7 +67,8 @@ HttpResponse HttpClient::execute_get(HttpRequest &request) {
   long response_code = 0;
   curl_easy_getinfo(curl_handle, CURLINFO_HTTP_CODE, &response_code);
 
-  return HttpResponse(static_cast<int>(response_code), std::move(body_buf), std::move(headers_buf));
+  return HttpResponse(static_cast<int>(response_code), std::move(body_buf),
+                      std::move(headers_buf));
 }
 
 HttpResponse HttpClient::execute_head(HttpRequest &request) {
@@ -76,7 +78,7 @@ HttpResponse HttpClient::execute_head(HttpRequest &request) {
         // is invalidated in the HTTPClient copy constructor
         "cURL handle is invalid");
   }
-  std::unordered_map<std::string, std::string> headers_buf;
+  std::map<std::string, std::string> headers_buf;
   std::string error_buf;
 
   curl_easy_setopt(curl_handle, CURLOPT_URL, request.getURL().c_str());
@@ -123,8 +125,7 @@ size_t HttpClient::header_callback(char *buffer, size_t size, size_t nitems,
   // from libcurl docs:
   // The header callback is called once for each header and
   // only complete header lines are passed on to the callback.
-  auto headers =
-      static_cast<std::unordered_map<std::string, std::string> *>(userdata);
+  auto headers = static_cast<std::map<std::string, std::string> *>(userdata);
   size_t total_size = size * nitems;
 
   std::string line(buffer, total_size);

@@ -150,7 +150,8 @@ TEST(HTTP, HTTPRemoveHeader) {
                     .timeout(10)
                     .header("User-Agent", "")
                     .execute();
-    EXPECT_THAT(resp.body(), testing::Not(testing::HasSubstr("\"user-agent\":\"client\"")));
+    EXPECT_THAT(resp.body(),
+                testing::Not(testing::HasSubstr("\"user-agent\":\"client\"")));
   } catch (const std::exception &e) {
     FAIL() << std::format("Request failed: {}", e.what());
   }
@@ -158,8 +159,33 @@ TEST(HTTP, HTTPRemoveHeader) {
 
 TEST(HTTP, HTTPHead) {
   HttpClient client{};
-  HttpResponse resp = client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2").execute();
-	EXPECT_TRUE(resp.body().empty());
-	EXPECT_FALSE(resp.headers().empty());
+  HttpResponse resp =
+      client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2").execute();
+  EXPECT_TRUE(resp.body().empty());
+  EXPECT_FALSE(resp.headers().empty());
 }
 
+TEST(HTTP, HTTPHeaderOrder) {
+  HttpClient client{};
+  HttpResponse resp1 =
+      client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2").execute();
+  EXPECT_TRUE(resp1.body().empty());
+  EXPECT_FALSE(resp1.headers().empty());
+
+  HttpResponse resp2 =
+      client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2").execute();
+  EXPECT_TRUE(resp2.body().empty());
+  EXPECT_FALSE(resp2.headers().empty());
+
+  // check that both headers are in the same order as well as same headers
+  EXPECT_EQ(resp1.headers().size(), resp2.headers().size());
+  auto it1 = resp1.headers().cbegin();
+  auto it2 = resp2.headers().cbegin();
+  auto end1 = resp1.headers().cend();
+  auto end2 = resp2.headers().cend();
+  while (it1 != end1 && it2 != end2) {
+    EXPECT_EQ(it1->first, it2->first);
+    it1++;
+    it2++;
+  }
+}

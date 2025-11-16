@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <curl/curl.h>
 #include <curl/easy.h>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -18,18 +19,15 @@ class HttpResponse {
 public:
   HttpResponse(int c) : code_(c) {};
   HttpResponse(int c, std::string b) : code_(c), body_(std::move(b)) {};
-  HttpResponse(int c, std::unordered_map<std::string, std::string> h)
+  HttpResponse(int c, std::map<std::string, std::string> h)
       : code_(c), headers_(std::move(h)) {};
-  HttpResponse(int c, std::string b,
-               std::unordered_map<std::string, std::string> h)
+  HttpResponse(int c, std::string b, std::map<std::string, std::string> h)
       : code_(c), body_(std::move(b)), headers_(std::move(h)) {};
 
   // Getters
   int status() const { return code_; }
   const std::string &body() const { return body_; }
-  const std::unordered_map<std::string, std::string> &headers() const {
-    return headers_;
-  }
+  const std::map<std::string, std::string> &headers() const { return headers_; }
 
   // Status via code
   bool is_ok() const { return code_ >= 200 && code_ < 300; }
@@ -45,7 +43,7 @@ public:
 private:
   int code_;
   std::string body_;
-  std::unordered_map<std::string, std::string> headers_;
+  std::map<std::string, std::string> headers_;
 };
 
 // HttpRequest will handle all the headers and request params
@@ -136,12 +134,12 @@ public:
 
 private:
   CURL *curl_handle = nullptr;
-	// response body
+  // response body
   static size_t write_callback(char *ptr, size_t size, size_t nmemb,
                                void *userdata);
-	// response headers
+  // response headers
   static size_t header_callback(char *buffer, size_t size, size_t nitems,
-                         void *userdata);
+                                void *userdata);
   std::unordered_map<std::string, std::string> headers_;
 
   // main logic to perform the request
