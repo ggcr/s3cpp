@@ -158,5 +158,7 @@ TEST(HTTP, HTTPHead) {
   HttpClient client{};
   HttpResponse resp = client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2").execute();
 	EXPECT_TRUE(resp.body().empty());
+	// TODO(crsitian)
+	// EXPECT_FALSE(resp.headers().empty());
 }
 
