@@ -6,15 +6,15 @@
 #include <string>
 
 // Route to its HttpMethod
-HttpResponse HttpRequest::execute() { 
-	switch (this->http_method_) {
-		case HttpMethod::Get:
-			return client_.execute_get(*this); 
-		case HttpMethod::Head:
-			return client_.execute_head(*this); 
-		default:
-			throw std::runtime_error(std::format("No matching enum Http Method"));
-	}
+HttpResponse HttpRequest::execute() {
+  switch (this->http_method_) {
+  case HttpMethod::Get:
+    return client_.execute_get(*this);
+  case HttpMethod::Head:
+    return client_.execute_head(*this);
+  default:
+    throw std::runtime_error(std::format("No matching enum Http Method"));
+  }
 }
 
 HttpResponse HttpClient::execute_get(HttpRequest &request) {
@@ -24,7 +24,8 @@ HttpResponse HttpClient::execute_get(HttpRequest &request) {
         // is invalidated in the HTTPClient copy constructor
         "cURL handle is invalid");
   }
-  std::string buffer;
+  std::string body_buf;
+  std::unordered_map<std::string, std::string> headers_buf;
   std::string error_buf;
 
   // TODO(cristian): from libcurl docs, they state that each curl handle has
@@ -35,22 +36,27 @@ HttpResponse HttpClient::execute_get(HttpRequest &request) {
   // curl_easy_reset(curl_handle);
 
   curl_easy_setopt(curl_handle, CURLOPT_URL, request.getURL().c_str());
+  // body callback
   curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
-  curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &buffer);
+  curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &body_buf);
+  // headers callback
+  curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_callback);
+  curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, &headers_buf);
+
   curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, request.getTimeout());
 
-	// merge client and request headers
-	// https://stackoverflow.com/questions/34321719
-	auto headers = request.getHeaders();
-	headers.insert(this->getHeaders().begin(), this->getHeaders().end());
-	struct curl_slist *list = NULL;
-	for (const auto &[k, v] : headers) {
-		list = curl_slist_append(list, std::format("{}: {}", k, v).c_str());
-	}
-	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, list);
+  // merge client and request headers
+  // https://stackoverflow.com/questions/34321719
+  auto headers = request.getHeaders();
+  headers.insert(this->getHeaders().begin(), this->getHeaders().end());
+  struct curl_slist *list = NULL;
+  for (const auto &[k, v] : headers) {
+    list = curl_slist_append(list, std::format("{}: {}", k, v).c_str());
+  }
+  curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, list);
 
-	CURLcode code = curl_easy_perform(curl_handle);
-	curl_slist_free_all(list);
+  CURLcode code = curl_easy_perform(curl_handle);
+  curl_slist_free_all(list);
   if (code != CURLE_OK) {
     throw std::runtime_error(
         std::format("libcurl error for request: {}", curl_easy_strerror(code)));
@@ -60,7 +66,7 @@ HttpResponse HttpClient::execute_get(HttpRequest &request) {
   long response_code = 0;
   curl_easy_getinfo(curl_handle, CURLINFO_HTTP_CODE, &response_code);
 
-  return HttpResponse(static_cast<int>(response_code), std::move(buffer));
+  return HttpResponse(static_cast<int>(response_code), std::move(body_buf), std::move(headers_buf));
 }
 
 HttpResponse HttpClient::execute_head(HttpRequest &request) {
@@ -70,41 +76,38 @@ HttpResponse HttpClient::execute_head(HttpRequest &request) {
         // is invalidated in the HTTPClient copy constructor
         "cURL handle is invalid");
   }
+  std::unordered_map<std::string, std::string> headers_buf;
   std::string error_buf;
 
-  // TODO(cristian): from libcurl docs, they state that each curl handle has
-  // "sticky" params, this is why we are resetting at each get request
-  // However, I think we should only do this when moving a new handle the only
-  // thing that will change is the URL from now
-  //
-  // curl_easy_reset(curl_handle);
-
   curl_easy_setopt(curl_handle, CURLOPT_URL, request.getURL().c_str());
-  curl_easy_setopt(curl_handle, CURLOPT_NOBODY, 1L);
+  curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_callback);
+  curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, &headers_buf);
   curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, request.getTimeout());
 
-	// merge client and request headers
-	// https://stackoverflow.com/questions/34321719
-	auto headers = request.getHeaders();
-	headers.insert(this->getHeaders().begin(), this->getHeaders().end());
-	struct curl_slist *list = NULL;
-	for (const auto &[k, v] : headers) {
-		list = curl_slist_append(list, std::format("{}: {}", k, v).c_str());
-	}
-	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, list);
+  curl_easy_setopt(curl_handle, CURLOPT_NOBODY, 1L);
 
-	CURLcode code = curl_easy_perform(curl_handle);
-	curl_slist_free_all(list);
+  // merge client and request headers
+  // https://stackoverflow.com/questions/34321719
+  auto headers = request.getHeaders();
+  headers.insert(this->getHeaders().begin(), this->getHeaders().end());
+  struct curl_slist *list = NULL;
+  for (const auto &[k, v] : headers) {
+    list = curl_slist_append(list, std::format("{}: {}", k, v).c_str());
+  }
+  curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, list);
+
+  CURLcode code = curl_easy_perform(curl_handle);
+  curl_slist_free_all(list);
   if (code != CURLE_OK) {
     throw std::runtime_error(
         std::format("libcurl error for request: {}", curl_easy_strerror(code)));
   }
 
-  // HTTP code
+  // get HTTP code
   long response_code = 0;
   curl_easy_getinfo(curl_handle, CURLINFO_HTTP_CODE, &response_code);
 
-  return HttpResponse(static_cast<int>(response_code));
+  return HttpResponse(static_cast<int>(response_code), std::move(headers_buf));
 }
 
 size_t HttpClient::write_callback(char *ptr, size_t size, size_t nmemb,
@@ -112,5 +115,31 @@ size_t HttpClient::write_callback(char *ptr, size_t size, size_t nmemb,
   std::string *buffer = static_cast<std::string *>(userdata);
   size_t total_size = size * nmemb;
   buffer->append(ptr, total_size);
+  return total_size;
+}
+
+size_t HttpClient::header_callback(char *buffer, size_t size, size_t nitems,
+                                   void *userdata) {
+  // from libcurl docs:
+  // The header callback is called once for each header and
+  // only complete header lines are passed on to the callback.
+  auto headers =
+      static_cast<std::unordered_map<std::string, std::string> *>(userdata);
+  size_t total_size = size * nitems;
+
+  std::string line(buffer, total_size);
+
+  if (line.find(":") == std::string::npos || line == "\r\n" || line == "\n") {
+    return total_size;
+  }
+
+  size_t separator = line.find(":");
+  if (separator != std::string::npos) {
+    std::string k = line.substr(0, separator);
+    std::string v = line.substr(separator + 2); // `:_<here>` advance 2
+    v.erase(v.find_last_not_of("\r\n") + 1);    // .strip()
+    (*headers)[k] = v;
+  }
+
   return total_size;
 }

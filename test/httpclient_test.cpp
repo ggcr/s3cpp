@@ -85,7 +85,9 @@ TEST(HTTP, HTTPRequestInDifferentPhases) {
     SUCCEED(); // libcurl error for request: Timeout was reached
   }
   ASSERT_EQ(responses.size(), 2);
-  ASSERT_EQ(responses[0], responses[1]);
+  ASSERT_EQ(responses[0].status(), responses[1].status());
+  ASSERT_EQ(responses[0].body(), responses[1].body());
+  ASSERT_NE(responses[0].headers(), responses[1].headers());
 }
 
 TEST(HTTP, HTTPRequestCastTimeout) {
@@ -158,7 +160,6 @@ TEST(HTTP, HTTPHead) {
   HttpClient client{};
   HttpResponse resp = client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2").execute();
 	EXPECT_TRUE(resp.body().empty());
-	// TODO(crsitian)
-	// EXPECT_FALSE(resp.headers().empty());
+	EXPECT_FALSE(resp.headers().empty());
 }
 

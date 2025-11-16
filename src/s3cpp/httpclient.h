@@ -12,40 +12,49 @@
 // Forward declaration
 class HttpClient;
 
-enum class HttpMethod {
-	Get,
-	Post,
-	Put,
-	Head
-};
+enum class HttpMethod { Get, Post, Put, Head };
 
 class HttpResponse {
 public:
   HttpResponse(int c) : code_(c) {};
   HttpResponse(int c, std::string b) : code_(c), body_(std::move(b)) {};
+  HttpResponse(int c, std::unordered_map<std::string, std::string> h)
+      : code_(c), headers_(std::move(h)) {};
+  HttpResponse(int c, std::string b,
+               std::unordered_map<std::string, std::string> h)
+      : code_(c), body_(std::move(b)), headers_(std::move(h)) {};
 
+  // Getters
   int status() const { return code_; }
   const std::string &body() const { return body_; }
+  const std::unordered_map<std::string, std::string> &headers() const {
+    return headers_;
+  }
 
+  // Status via code
   bool is_ok() const { return code_ >= 200 && code_ < 300; }
   bool is_redirect() const { return code_ >= 300 && code_ < 400; }
   bool is_client_error() const { return code_ >= 400 && code_ < 500; }
   bool is_server_error() const { return code_ >= 500 && code_ < 600; }
 
   bool operator==(const HttpResponse &other) const {
-    return (code_ == other.code_ && body_ == other.body_);
+    return (code_ == other.code_ && body_ == other.body_ &&
+            headers_ == other.headers_);
   }
 
 private:
   int code_;
   std::string body_;
+  std::unordered_map<std::string, std::string> headers_;
 };
 
 // HttpRequest will handle all the headers and request params
 class HttpRequest {
 public:
-  HttpRequest(HttpClient &client, std::string URL, const HttpMethod &http_method)
-      : client_(client), URL_(std::move(URL)), http_method_(std::move(http_method)), timeout_(0) {};
+  HttpRequest(HttpClient &client, std::string URL,
+              const HttpMethod &http_method)
+      : client_(client), URL_(std::move(URL)),
+        http_method_(std::move(http_method)), timeout_(0) {};
 
   HttpRequest &timeout(const long long &seconds) {
     timeout_ = std::chrono::seconds(seconds);
@@ -64,14 +73,16 @@ public:
 
   const std::string &getURL() const { return URL_; }
   const long long getTimeout() const { return timeout_.count(); }
-  const std::unordered_map<std::string, std::string>  &getHeaders() const { return headers_; }
+  const std::unordered_map<std::string, std::string> &getHeaders() const {
+    return headers_;
+  }
 
 private:
   HttpClient &client_;
   std::string URL_;
   std::unordered_map<std::string, std::string> headers_;
   std::chrono::seconds timeout_;
-	HttpMethod http_method_;
+  HttpMethod http_method_;
 };
 
 // HttpClient should only focus on handling the cURL handle
@@ -83,7 +94,7 @@ public:
     curl_handle = curl_easy_init();
     if (!curl_handle)
       throw std::runtime_error("Failed to initialize cURL");
-		headers_["User-Agent"] = "s3cpp/0.0.0 github.com/ggcr/s3cpp";
+    headers_["User-Agent"] = "s3cpp/0.0.0 github.com/ggcr/s3cpp";
   }
   ~HttpClient() {
     if (curl_handle)
@@ -94,7 +105,7 @@ public:
     curl_handle = curl_easy_init();
     if (!curl_handle)
       throw std::runtime_error("Failed to initialize cURL");
-		headers_["User-Agent"] = "s3cpp/0.0.0 github.com/ggcr/s3cpp";
+    headers_["User-Agent"] = "s3cpp/0.0.0 github.com/ggcr/s3cpp";
   }
 
   HttpClient(const HttpClient &) = delete;
@@ -125,8 +136,12 @@ public:
 
 private:
   CURL *curl_handle = nullptr;
+	// response body
   static size_t write_callback(char *ptr, size_t size, size_t nmemb,
                                void *userdata);
+	// response headers
+  static size_t header_callback(char *buffer, size_t size, size_t nitems,
+                         void *userdata);
   std::unordered_map<std::string, std::string> headers_;
 
   // main logic to perform the request
@@ -134,7 +149,9 @@ private:
   HttpResponse execute_get(HttpRequest &request);
   HttpResponse execute_head(HttpRequest &request);
 
-  const std::unordered_map<std::string, std::string> &getHeaders() const { return headers_; }
+  const std::unordered_map<std::string, std::string> &getHeaders() const {
+    return headers_;
+  }
 };
 
 #endif
