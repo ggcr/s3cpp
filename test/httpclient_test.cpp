@@ -5,6 +5,7 @@
 #include <format>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <print>
 #include <s3cpp/httpclient.h>
 #include <stdexcept>
 #include <string>
@@ -102,8 +103,6 @@ TEST(HTTP, HTTPRequestCastTimeout) {
   EXPECT_EQ(request.getTimeout(), 3600);
 }
 
-// TODO(cristian): Headers extensive tests
-
 TEST(HTTP, HTTPClientDefaultHeadersOverwrittenByRequestHeaders) {
   // HttpClient allows setting headers once through a initializer list
   // this headers are then merged (and overriden) with the HttpRequest headers
@@ -161,6 +160,16 @@ TEST(HTTP, HTTPHead) {
   HttpClient client{};
   HttpResponse resp =
       client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2").execute();
+  EXPECT_TRUE(resp.body().empty());
+  EXPECT_FALSE(resp.headers().empty());
+}
+
+TEST(HTTP, HTTPHeadStatusCode) {
+  HttpClient client{};
+  HttpResponse resp =
+      client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2").execute();
+  EXPECT_TRUE(resp.is_ok());
+  EXPECT_EQ(resp.status(), 200);
   EXPECT_TRUE(resp.body().empty());
   EXPECT_FALSE(resp.headers().empty());
 }
