@@ -47,27 +47,34 @@ private:
 };
 
 // HttpRequest will handle all the headers and request params
-class HttpRequest {
+//
+// Curiously Recurring Template Pattern (CRTP)
+//
+// POST/PUT must a have a body member variable that GET/HEAD don't
+// we want to do this at compile-time, however, because we are using a fluent
+// builder pattern, if we were to do regular inheritance, when using .body() we
+// would return a `&HttpBodyRequest : public HttpRequest`, which would not allow
+// us to chain useful methods on the HttpRequest class such as .timeout()
+
+template <typename T> class HttpRequestBase {
 public:
-  HttpRequest(HttpClient &client, std::string URL,
-              const HttpMethod &http_method)
+  HttpRequestBase(HttpClient &client, std::string URL,
+                  const HttpMethod &http_method)
       : client_(client), URL_(std::move(URL)),
         http_method_(std::move(http_method)), timeout_(0) {};
 
-  HttpRequest &timeout(const long long &seconds) {
+  T &timeout(const long long &seconds) {
     timeout_ = std::chrono::seconds(seconds);
-    return *this;
+    return static_cast<T &>(*this);
   }
-  HttpRequest &timeout(const std::chrono::seconds &seconds) {
+  T &timeout(const std::chrono::seconds &seconds) {
     timeout_ = seconds;
-    return *this;
+    return static_cast<T &>(*this);
   }
-  HttpRequest &header(const std::string &header_, const std::string &value) {
+  T &header(const std::string &header_, const std::string &value) {
     headers_[header_] = value;
-    return *this;
+    return static_cast<T &>(*this);
   }
-
-  HttpResponse execute();
 
   const std::string &getURL() const { return URL_; }
   const long long getTimeout() const { return timeout_.count(); }
@@ -75,7 +82,7 @@ public:
     return headers_;
   }
 
-private:
+protected:
   HttpClient &client_;
   std::string URL_;
   std::unordered_map<std::string, std::string> headers_;
@@ -83,10 +90,40 @@ private:
   HttpMethod http_method_;
 };
 
+// GET/HEAD
+class HttpRequest : public HttpRequestBase<HttpRequest> {
+public:
+  using HttpRequestBase::HttpRequestBase;
+	HttpResponse execute();
+};
+
+// POST/PUT
+class HttpBodyRequest : public HttpRequestBase<HttpBodyRequest> {
+public:
+  HttpBodyRequest(HttpClient &client, std::string URL,
+                  const HttpMethod &http_method)
+      : HttpRequestBase(client, std::move(URL), http_method) {}
+
+  HttpBodyRequest &body(const std::string &data) {
+    body_ = std::move(data);
+    return (*this);
+  }
+
+  const std::string &getBody() const { return body_; }
+
+	HttpResponse execute();
+
+private:
+  std::string body_;
+};
+
 // HttpClient should only focus on handling the cURL handle
 // and making the request (HttpRequest) and returning HttpResponse
 class HttpClient {
-  friend class HttpRequest; // `execute()` is invoked from the request only
+  // `execute()` is invoked from the request only
+  friend class HttpRequest;
+  friend class HttpBodyRequest;
+
 public:
   HttpClient() {
     curl_handle = curl_easy_init();
@@ -131,6 +168,9 @@ public:
   [[nodiscard]] HttpRequest head(const std::string &URL) {
     return HttpRequest{*this, URL, HttpMethod::Head};
   };
+  [[nodiscard]] HttpBodyRequest post(const std::string &URL) {
+    return HttpBodyRequest{*this, URL, HttpMethod::Post};
+  };
 
 private:
   CURL *curl_handle = nullptr;
@@ -146,6 +186,7 @@ private:
   // this is invoked by HttpRequest
   HttpResponse execute_get(HttpRequest &request);
   HttpResponse execute_head(HttpRequest &request);
+  HttpResponse execute_post(HttpBodyRequest &request);
 
   const std::unordered_map<std::string, std::string> &getHeaders() const {
     return headers_;
