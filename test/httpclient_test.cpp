@@ -210,3 +210,14 @@ TEST(HTTP, HTTPPost) {
 	EXPECT_THAT(resp.body(), testing::HasSubstr(data));
 }
 
+// NOTE(cristian): This is done at compile time, duh, nothing to check
+/*
+TEST(HTTP, HTTPGetHeadCRTP) {
+	// This validates our changes we did with CRTP
+	// When issuing a GET/HEAD we cannot do a .body() 
+	// this is determined at compile time
+	HttpClient client{};
+	HttpRequest req = client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2");
+	// Check that we cannot do body
+}
+*/
