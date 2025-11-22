@@ -221,3 +221,15 @@ TEST(HTTP, HTTPGetHeadCRTP) {
 	// Check that we cannot do body
 }
 */
+
+TEST(HTTP, HTTPPut) {
+  HttpClient client{};
+	std::string data = "This is expected to be sent back as part of response body";
+	HttpBodyRequest req = client.put("https://postman-echo.com/post").body(data);
+  EXPECT_EQ(req.getBody(), data);
+  HttpResponse resp = req.execute();
+  EXPECT_TRUE(resp.is_ok());
+  EXPECT_EQ(resp.status(), 200);
+	EXPECT_THAT(resp.body(), testing::HasSubstr(data));
+}
+

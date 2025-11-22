@@ -22,6 +22,8 @@ HttpResponse HttpBodyRequest::execute() {
   switch (this->http_method_) {
   case HttpMethod::Post:
     return client_.execute_post(*this);
+  case HttpMethod::Put:
+    return client_.execute_post(*this);
   default:
     throw std::runtime_error(std::format("No matching enum Http Method"));
   }

@@ -171,6 +171,9 @@ public:
   [[nodiscard]] HttpBodyRequest post(const std::string &URL) {
     return HttpBodyRequest{*this, URL, HttpMethod::Post};
   };
+  [[nodiscard]] HttpBodyRequest put(const std::string &URL) {
+    return HttpBodyRequest{*this, URL, HttpMethod::Put};
+  };
 
 private:
   CURL *curl_handle = nullptr;
