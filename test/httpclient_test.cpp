@@ -46,15 +46,10 @@ TEST(HTTP, HTTPClientMoveOwnership) {
 
 TEST(HTTP, HTTPBodyNonEmpty) {
   HttpClient client{};
-  try {
-    HttpResponse request =
-        client.get("https://postman-echo.com/get?foo=bar").execute();
-    EXPECT_TRUE(request.is_ok());
-    EXPECT_THAT(request.body(), testing::HasSubstr("\"foo\":\"bar\""));
-
-  } catch (const std::exception &e) {
-    FAIL() << std::format("Request failed with exception: {}", e.what());
-  }
+  HttpResponse request =
+      client.get("https://postman-echo.com/get?foo=bar").execute();
+  EXPECT_TRUE(request.is_ok());
+  EXPECT_THAT(request.body(), testing::HasSubstr("\"foo\":\"bar\""));
 }
 
 TEST(HTTP, HTTPHandleTimeout) {
@@ -119,17 +114,12 @@ TEST(HTTP, HTTPClientDefaultHeadersOverwrittenByRequestHeaders) {
                               .timeout(10)
                               .header("User-Agent", val);
 
-    try {
-      auto resp = request.execute();
+    auto resp = request.execute();
 
-      // request should work + having the new user-agent header each time
-      EXPECT_TRUE(resp.is_ok());
-      EXPECT_THAT(resp.body(), testing::HasSubstr(
-                                   std::format("\"user-agent\":\"{}\"", val)));
-
-    } catch (const std::exception &e) {
-      FAIL() << std::format("Request failed: {}", e.what());
-    }
+    // request should work + having the new user-agent header each time
+    EXPECT_TRUE(resp.is_ok());
+    EXPECT_THAT(resp.body(),
+                testing::HasSubstr(std::format("\"user-agent\":\"{}\"", val)));
   }
 }
 
@@ -143,17 +133,13 @@ TEST(HTTP, HTTPRemoveHeader) {
   // in which case, when merging request and client headers, if we remove a
   // request one, the client one should also be removed!
 
-  try {
-    // Removes the User-Agent header
-    auto resp = client.get("https://postman-echo.com/get")
-                    .timeout(10)
-                    .header("User-Agent", "")
-                    .execute();
-    EXPECT_THAT(resp.body(),
-                testing::Not(testing::HasSubstr("\"user-agent\":\"client\"")));
-  } catch (const std::exception &e) {
-    FAIL() << std::format("Request failed: {}", e.what());
-  }
+  // Removes the User-Agent header
+  auto resp = client.get("https://postman-echo.com/get")
+                  .timeout(10)
+                  .header("User-Agent", "")
+                  .execute();
+  EXPECT_THAT(resp.body(),
+              testing::Not(testing::HasSubstr("\"user-agent\":\"client\"")));
 }
 
 TEST(HTTP, HTTPHead) {
@@ -201,35 +187,60 @@ TEST(HTTP, HTTPHeaderOrder) {
 
 TEST(HTTP, HTTPPost) {
   HttpClient client{};
-	std::string data = "This is expected to be sent back as part of response body";
-	HttpBodyRequest req = client.post("https://postman-echo.com/post").body(data);
+  std::string data =
+      "This is expected to be sent back as part of response body";
+  HttpBodyRequest req = client.post("https://postman-echo.com/post").body(data);
   EXPECT_EQ(req.getBody(), data);
   HttpResponse resp = req.execute();
   EXPECT_TRUE(resp.is_ok());
   EXPECT_EQ(resp.status(), 200);
-	EXPECT_THAT(resp.body(), testing::HasSubstr(data));
+  EXPECT_THAT(resp.body(), testing::HasSubstr(data));
 }
 
 // NOTE(cristian): This is done at compile time, duh, nothing to check
 /*
 TEST(HTTP, HTTPGetHeadCRTP) {
-	// This validates our changes we did with CRTP
-	// When issuing a GET/HEAD we cannot do a .body() 
-	// this is determined at compile time
-	HttpClient client{};
-	HttpRequest req = client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2");
-	// Check that we cannot do body
+        // This validates our changes we did with CRTP
+        // When issuing a GET/HEAD we cannot do a .body()
+        // this is determined at compile time
+        HttpClient client{};
+        HttpRequest req =
+client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2");
+        // Check that we cannot do body
 }
 */
 
 TEST(HTTP, HTTPPut) {
   HttpClient client{};
-	std::string data = "This is expected to be sent back as part of response body";
-	HttpBodyRequest req = client.put("https://postman-echo.com/post").body(data);
+  std::string data =
+      "This is expected to be sent back as part of response body";
+  HttpBodyRequest req = client.put("https://postman-echo.com/post").body(data);
   EXPECT_EQ(req.getBody(), data);
   HttpResponse resp = req.execute();
   EXPECT_TRUE(resp.is_ok());
   EXPECT_EQ(resp.status(), 200);
-	EXPECT_THAT(resp.body(), testing::HasSubstr(data));
+  EXPECT_THAT(resp.body(), testing::HasSubstr(data));
 }
 
+TEST(HTTP, HTTPDeleteQueryParamStr) {
+  HttpClient client{};
+  std::string query = "deletethis";
+  HttpBodyRequest req =
+      client.del(std::format("https://postman-echo.com/patch?{}", query));
+  HttpResponse resp = req.execute();
+  EXPECT_TRUE(resp.is_ok());
+  EXPECT_EQ(resp.status(), 200);
+  EXPECT_THAT(resp.body(), testing::HasSubstr(query));
+}
+
+TEST(HTTP, HTTPDeleteWithBody) {
+  HttpClient client{};
+  std::string data = "This is expected to be deleted";
+  HttpBodyRequest req =
+      client.del("https://postman-echo.com/patch").body(data);
+  EXPECT_EQ(req.getBody(), data);
+  HttpResponse resp = req.execute();
+  EXPECT_TRUE(resp.is_ok());
+  EXPECT_EQ(resp.status(), 200);
+  EXPECT_THAT(resp.body(), testing::HasSubstr(data));
+}

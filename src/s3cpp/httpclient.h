@@ -13,7 +13,7 @@
 // Forward declaration
 class HttpClient;
 
-enum class HttpMethod { Get, Post, Put, Head };
+enum class HttpMethod { Get, Post, Put, Head, Delete };
 
 class HttpResponse {
 public:
@@ -114,7 +114,7 @@ public:
 	HttpResponse execute();
 
 private:
-  std::string body_;
+  std::string body_ = "";
 };
 
 // HttpClient should only focus on handling the cURL handle
@@ -174,6 +174,9 @@ public:
   [[nodiscard]] HttpBodyRequest put(const std::string &URL) {
     return HttpBodyRequest{*this, URL, HttpMethod::Put};
   };
+  [[nodiscard]] HttpBodyRequest del(const std::string &URL) {
+    return HttpBodyRequest{*this, URL, HttpMethod::Delete};
+  };
 
 private:
   CURL *curl_handle = nullptr;
@@ -190,6 +193,7 @@ private:
   HttpResponse execute_get(HttpRequest &request);
   HttpResponse execute_head(HttpRequest &request);
   HttpResponse execute_post(HttpBodyRequest &request);
+  HttpResponse execute_delete(HttpBodyRequest &request);
 
   const std::unordered_map<std::string, std::string> &getHeaders() const {
     return headers_;
