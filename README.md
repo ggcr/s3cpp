@@ -11,5 +11,8 @@ $ cmake --build build/
 ### Run tests
 
 ```bash
-$ ./build/s3cpp_tests
+$ ./build/tests [--gtest_filter='TESTSUITE.*']
+
+# to see all available test suites
+$ ./build/tests --gtest_list_tests
 ```

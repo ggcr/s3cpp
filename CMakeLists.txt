@@ -19,6 +19,7 @@ find_package(CURL)
 # Create lib and app
 add_library(s3cpplib 
 	src/s3cpp/httpclient.cpp
+	src/s3cpp/auth.cpp
 )
 target_include_directories(s3cpplib PUBLIC src)
 add_executable(s3cpp_app main.cpp)
@@ -28,6 +29,7 @@ target_link_libraries(s3cpp_app s3cpplib)
 enable_testing()
 add_executable(tests 
 	test/httpclient_test.cpp
+	test/auth_test.cpp
 )
 
 target_link_libraries(tests s3cpplib GTest::gtest_main GTest::gmock_main CURL::libcurl)
