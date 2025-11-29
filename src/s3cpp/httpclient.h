@@ -131,10 +131,6 @@ public:
       throw std::runtime_error("Failed to initialize cURL");
     headers_["User-Agent"] = "s3cpp/0.0.0 github.com/ggcr/s3cpp";
   }
-  ~HttpClient() {
-    if (curl_handle)
-      curl_easy_cleanup(curl_handle);
-  };
   HttpClient(std::unordered_map<std::string, std::string> headers)
       : headers_(std::move(headers)) {
     curl_handle = curl_easy_init();
@@ -142,6 +138,10 @@ public:
       throw std::runtime_error("Failed to initialize cURL");
     headers_["User-Agent"] = "s3cpp/0.0.0 github.com/ggcr/s3cpp";
   }
+  ~HttpClient() {
+    if (curl_handle)
+      curl_easy_cleanup(curl_handle);
+  };
 
   HttpClient(const HttpClient &) = delete;
   HttpClient &operator=(const HttpClient &) = delete;
