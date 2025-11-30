@@ -36,3 +36,8 @@ TEST(AUTH, CannonicalGETRequest) {
 
   EXPECT_EQ(signer.createCannonicalRequest(req), expected_canonical);
 }
+
+TEST(AUTH, SHA256HexDigest) {
+  auto signer = AWSSigV4Signer("minio_access", "minio_secret");
+  EXPECT_EQ(signer.sha256("github.com/ggcr/s3cpp"), "bc088c51b33c2730707dbb528d1d0bfafc59ba56c8c9aa3b8e0dc0c13e3d9b2b");
+}

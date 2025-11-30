@@ -3,7 +3,8 @@
 
 #include "s3cpp/httpclient.h"
 #include <cstdint>
-#include <print>
+#include <iomanip>
+#include <openssl/sha.h>
 #include <string>
 
 class AWSSigV4Signer {
@@ -38,8 +39,8 @@ public:
       signed_headers += kHeader;
       i++;
     }
-		// Cannonical request
-		std::string cannonical_request = createCannonicalRequest(request);
+    // Cannonical request
+    std::string cannonical_request = createCannonicalRequest(request);
     // Build the final auth header value
     const std::string header_value =
         std::format("{} Credential={}, SignedHeaders={}, Signature={}",
@@ -55,15 +56,15 @@ public:
     std::string uri{};
     if (size_t bpos = url.find("amazonaws.com"); bpos != std::string::npos) {
       uri = url.erase(0, bpos + 13);
-      if (size_t epos = url.find("?"); epos != std::string::npos) {
-        uri = url.erase(epos, uri.size());
-      }
     } else {
       // Assume localhost falls here...
     }
 
     // URI Query-string
     // For now let's assume the request does not include any query string...
+    if (size_t epos = url.find("?"); epos != std::string::npos) {
+      uri = url.erase(epos, uri.size());
+    }
     std::string query_str = "";
 
     // Canonical Headers + SignedHeaders
@@ -88,6 +89,18 @@ public:
 
     return std::format("{}\n{}\n{}\n{}\n{}\n{}", http_verb, uri, query_str,
                        cheaders, signed_headers, empty_payload_hash);
+  }
+
+	std::string sha256(const std::string &str) {
+		// Returns the SHA256 digest in Hex
+		const auto in_str = reinterpret_cast<const unsigned char*>(str.c_str());
+    const unsigned char * digest = SHA256(in_str, str.size(), NULL);
+		
+		std::stringstream ss;
+		for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+			ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(digest[i]);
+		}
+		return ss.str();
   }
 
   // Move to S3 client class
@@ -122,6 +135,8 @@ private:
       throw std::runtime_error("No known Http Method");
     }
   }
+
+
 };
 
 #endif

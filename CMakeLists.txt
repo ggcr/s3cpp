@@ -16,6 +16,9 @@ FetchContent_MakeAvailable(googletest)
 # cURL
 find_package(CURL)
 
+# OpenSSL (SHA256)
+find_package(OpenSSL REQUIRED)
+
 # Create lib and app
 add_library(s3cpplib 
 	src/s3cpp/httpclient.cpp
@@ -32,7 +35,7 @@ add_executable(tests
 	test/auth_test.cpp
 )
 
-target_link_libraries(tests s3cpplib GTest::gtest_main GTest::gmock_main CURL::libcurl)
+target_link_libraries(tests s3cpplib GTest::gtest_main GTest::gmock_main CURL::libcurl OpenSSL::Crypto)
 
 include(GoogleTest)
 gtest_discover_tests(tests)
