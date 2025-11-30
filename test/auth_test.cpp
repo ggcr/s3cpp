@@ -5,17 +5,34 @@
 // TODO(cristian): Skip the functional tests that actually query MinIO if its
 // not up
 
-TEST(AUTH, AUTHBasicSign) {
-  // create signer
-  std::string access_key = "mock_access";
-  std::string secret_key = "mock_secret";
-  auto signer = AWSSigV4Signer(access_key, secret_key);
-  // create httpclient
+TEST(AUTH, CannonicalGETRequest) {
+  // create signer & http client
+  auto signer = AWSSigV4Signer("minio_access", "minio_secret");
   HttpClient client{};
-  const std::string URL = "https://postman-echo.com/status/200";
-  HttpRequest req = client.get(URL);
-  signer.sign(req);
-  // TODO(cristian)
-  EXPECT_TRUE(req.getHeaders().contains("Authorization"));
-  // EXPECT_EQ(req.getHeaders().at("Authorization"));
+
+  // prepare request
+  const std::string host = "s3.amazonaws.com";
+  const std::string URI = "/amzn-s3-demo-bucket/myphoto.jpg";
+  const std::string URL = std::format("http://{}{}", host, URI);
+  const std::string timestamp = signer.getTimestamp();
+  const std::string empty_payload_hash =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+  HttpRequest req = client.get(URL)
+                        .header("Host", host)
+                        .header("X-Amz-Date", timestamp)
+                        .header("X-Amz-Content-Sha256", empty_payload_hash);
+
+  const std::string expected_canonical =
+      std::format("GET\n"
+                  "/amzn-s3-demo-bucket/myphoto.jpg\n"
+                  "\n"
+                  "host:{}\n"
+                  "x-amz-content-sha256:{}\n"
+                  "x-amz-date:{}\n"
+                  "\n"
+                  "host;x-amz-content-sha256;x-amz-date\n"
+                  "{}",
+                  host, empty_payload_hash, timestamp, empty_payload_hash);
+
+  EXPECT_EQ(signer.createCannonicalRequest(req), expected_canonical);
 }

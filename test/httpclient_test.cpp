@@ -5,7 +5,6 @@
 #include <format>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <print>
 #include <s3cpp/httpclient.h>
 #include <stdexcept>
 #include <string>

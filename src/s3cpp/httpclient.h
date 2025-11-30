@@ -77,15 +77,16 @@ public:
   }
 
   const std::string &getURL() const { return URL_; }
+  const HttpMethod &getHttpMethod() const { return http_method_; }
   const long long getTimeout() const { return timeout_.count(); }
-  const std::unordered_map<std::string, std::string> &getHeaders() const {
+  const std::map<std::string, std::string> &getHeaders() const {
     return headers_;
   }
 
 protected:
   HttpClient &client_;
   std::string URL_;
-  std::unordered_map<std::string, std::string> headers_;
+  std::map<std::string, std::string> headers_;
   std::chrono::seconds timeout_;
   HttpMethod http_method_;
 };
@@ -94,7 +95,7 @@ protected:
 class HttpRequest : public HttpRequestBase<HttpRequest> {
 public:
   using HttpRequestBase::HttpRequestBase;
-	HttpResponse execute();
+  HttpResponse execute();
 };
 
 // POST/PUT
@@ -111,7 +112,7 @@ public:
 
   const std::string &getBody() const { return body_; }
 
-	HttpResponse execute();
+  HttpResponse execute();
 
 private:
   std::string body_ = "";
