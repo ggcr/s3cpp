@@ -5,6 +5,18 @@
 // TODO(cristian): Skip the functional tests that actually query MinIO if its
 // not up
 
+
+TEST(AUTH, SHA256HexDigest) {
+  auto signer = AWSSigV4Signer("minio_access", "minio_secret");
+  EXPECT_EQ(signer.hex(signer.sha256("github.com/ggcr/s3cpp")), "bc088c51b33c2730707dbb528d1d0bfafc59ba56c8c9aa3b8e0dc0c13e3d9b2b");
+}
+
+TEST(AUTH, HMACSHA256HexDigest) {
+  auto signer = AWSSigV4Signer("minio_access", "minio_secret");
+	std::string key = "super-secret-key";
+  EXPECT_EQ(signer.hex(signer.HMAC_SHA256(reinterpret_cast<const unsigned char *>(key.c_str()), "github.com/ggcr/s3cpp")), "558084957fb05bb4786ad6791bfbee71e67a11fea964e5dac6bac6b2f749b339");
+}
+
 TEST(AUTH, CannonicalGETRequest) {
   // create signer & http client
   auto signer = AWSSigV4Signer("minio_access", "minio_secret");
@@ -35,9 +47,4 @@ TEST(AUTH, CannonicalGETRequest) {
                   host, empty_payload_hash, timestamp, empty_payload_hash);
 
   EXPECT_EQ(signer.createCannonicalRequest(req), expected_canonical);
-}
-
-TEST(AUTH, SHA256HexDigest) {
-  auto signer = AWSSigV4Signer("minio_access", "minio_secret");
-  EXPECT_EQ(signer.sha256("github.com/ggcr/s3cpp"), "bc088c51b33c2730707dbb528d1d0bfafc59ba56c8c9aa3b8e0dc0c13e3d9b2b");
 }

@@ -4,6 +4,7 @@
 #include "s3cpp/httpclient.h"
 #include <cstdint>
 #include <iomanip>
+#include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include <string>
 
@@ -20,13 +21,16 @@ public:
   void sign(HttpRequest &request) {
     // Autorization
     const std::string hash_algo = "AWS4-HMAC-SHA256";
+
     // Compute date
     const auto req_headers = request.getHeaders();
     const std::string timestamp = req_headers.at("X-Amz-Date");
     const std::string request_date = timestamp.substr(0, 8);
+
     // Credential
-    const std::string credential = std::format(
-        "{}/{}/{}/s3/aws4_request", access_key, request_date, aws_region);
+    const std::string credential_scope =
+        std::format("{}/{}/s3/aws4_request", request_date, aws_region);
+
     // Signed headers
     std::string signed_headers = "";
     uint_fast16_t i = 0;
@@ -39,13 +43,23 @@ public:
       signed_headers += kHeader;
       i++;
     }
+
     // Cannonical request
-    std::string cannonical_request = createCannonicalRequest(request);
+    std::string hex_cannonical_request =
+        hex(sha256(createCannonicalRequest(request)));
+
+    // To sign
+    std::string string_to_sign =
+        std::format("{}\n{}\n{}\n{}\n", hash_algo, request_date,
+                    credential_scope, hex_cannonical_request);
+		std::string signature = hex(HMAC_SHA256(deriveSigningKey(request_date), string_to_sign));
+
     // Build the final auth header value
-    const std::string header_value =
-        std::format("{} Credential={}, SignedHeaders={}, Signature={}",
-                    hash_algo, credential, signed_headers, "");
-    request.header("Authorization", header_value);
+    request.header(
+        "Authorization",
+        std::format("{} Credential={}/{}, SignedHeaders={}, Signature={}",
+                    hash_algo, access_key, credential_scope, signed_headers,
+                    hex_cannonical_request, signature));
   }
 
   std::string createCannonicalRequest(HttpRequest &request) {
@@ -91,17 +105,31 @@ public:
                        cheaders, signed_headers, empty_payload_hash);
   }
 
-	std::string sha256(const std::string &str) {
-		// Returns the SHA256 digest in Hex
-		const auto in_str = reinterpret_cast<const unsigned char*>(str.c_str());
-    const unsigned char * digest = SHA256(in_str, str.size(), NULL);
-		
-		std::stringstream ss;
-		for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-			ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(digest[i]);
-		}
-		return ss.str();
+  const unsigned char *sha256(const std::string &str) {
+    // Returns the SHA256 digest in Hex
+    const auto in_str = reinterpret_cast<const unsigned char *>(str.c_str());
+    const unsigned char *digest = SHA256(in_str, str.size(), NULL);
+    return digest;
   }
+
+  const unsigned char *HMAC_SHA256(const unsigned char *key,
+                                   const std::string &data) {
+    unsigned int hashLen;
+
+    return HMAC(EVP_sha256(), key, strlen((char *)key),
+                reinterpret_cast<const unsigned char *>(data.c_str()),
+                data.size(), NULL, NULL);
+  }
+
+  std::string hex(const unsigned char *hash) {
+    std::stringstream ss;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+      ss << std::hex << std::setw(2) << std::setfill('0')
+         << static_cast<int>(hash[i]);
+    }
+    return ss.str();
+  }
+
 
   // Move to S3 client class
   // --
@@ -136,7 +164,15 @@ private:
     }
   }
 
-
+  const unsigned char * deriveSigningKey(const std::string request_date) {
+		const std::string initial_candidate = "AWS4" + secret_key;
+		const unsigned char* keyCandidate = reinterpret_cast<const unsigned char*>(initial_candidate.c_str());
+    const unsigned char* DateKey = HMAC_SHA256(keyCandidate, request_date);
+    const unsigned char* DateRegionKey = HMAC_SHA256(DateKey, aws_region);
+    const unsigned char* DateRegionServiceKey = HMAC_SHA256(DateRegionKey, "s3");
+    const unsigned char* SigningKey = HMAC_SHA256(DateRegionServiceKey, "aws4_request");
+    return SigningKey;
+  }
 };
 
 #endif
