@@ -50,16 +50,17 @@ public:
 
     // To sign
     std::string string_to_sign =
-        std::format("{}\n{}\n{}\n{}\n", hash_algo, request_date,
+        std::format("{}\n{}\n{}\n{}", hash_algo, timestamp,
                     credential_scope, hex_cannonical_request);
-		std::string signature = hex(HMAC_SHA256(deriveSigningKey(request_date), string_to_sign));
+    std::string signature =
+        hex(HMAC_SHA256(deriveSigningKey(request_date), SHA256_DIGEST_LENGTH, string_to_sign));
 
     // Build the final auth header value
     request.header(
         "Authorization",
         std::format("{} Credential={}/{}, SignedHeaders={}, Signature={}",
                     hash_algo, access_key, credential_scope, signed_headers,
-                    hex_cannonical_request, signature));
+                    signature));
   }
 
   std::string createCannonicalRequest(HttpRequest &request) {
@@ -71,7 +72,13 @@ public:
     if (size_t bpos = url.find("amazonaws.com"); bpos != std::string::npos) {
       uri = url.erase(0, bpos + 13);
     } else {
-      // Assume localhost falls here...
+      // Assume localhost:XXXX (dirty, sorry :( i know)
+      size_t path_start = url.find('/', 7);
+      if (path_start != std::string::npos) {
+        uri = url.substr(path_start);
+      } else {
+        uri = "/";
+      }
     }
 
     // URI Query-string
@@ -112,11 +119,9 @@ public:
     return digest;
   }
 
-  const unsigned char *HMAC_SHA256(const unsigned char *key,
+  const unsigned char *HMAC_SHA256(const unsigned char *key, size_t key_len,
                                    const std::string &data) {
-    unsigned int hashLen;
-
-    return HMAC(EVP_sha256(), key, strlen((char *)key),
+    return HMAC(EVP_sha256(), key, key_len,
                 reinterpret_cast<const unsigned char *>(data.c_str()),
                 data.size(), NULL, NULL);
   }
@@ -129,7 +134,6 @@ public:
     }
     return ss.str();
   }
-
 
   // Move to S3 client class
   // --
@@ -164,13 +168,16 @@ private:
     }
   }
 
-  const unsigned char * deriveSigningKey(const std::string request_date) {
-		const std::string initial_candidate = "AWS4" + secret_key;
-		const unsigned char* keyCandidate = reinterpret_cast<const unsigned char*>(initial_candidate.c_str());
-    const unsigned char* DateKey = HMAC_SHA256(keyCandidate, request_date);
-    const unsigned char* DateRegionKey = HMAC_SHA256(DateKey, aws_region);
-    const unsigned char* DateRegionServiceKey = HMAC_SHA256(DateRegionKey, "s3");
-    const unsigned char* SigningKey = HMAC_SHA256(DateRegionServiceKey, "aws4_request");
+  const unsigned char *deriveSigningKey(const std::string request_date) {
+    const std::string initial_candidate = "AWS4" + secret_key;
+    const unsigned char *keyCandidate =
+        reinterpret_cast<const unsigned char *>(initial_candidate.c_str());
+    const unsigned char *DateKey = HMAC_SHA256(keyCandidate, initial_candidate.size(), request_date);
+    const unsigned char *DateRegionKey = HMAC_SHA256(DateKey, SHA256_DIGEST_LENGTH, aws_region);
+    const unsigned char *DateRegionServiceKey =
+        HMAC_SHA256(DateRegionKey, SHA256_DIGEST_LENGTH, "s3");
+    const unsigned char *SigningKey =
+        HMAC_SHA256(DateRegionServiceKey, SHA256_DIGEST_LENGTH, "aws4_request");
     return SigningKey;
   }
 };
