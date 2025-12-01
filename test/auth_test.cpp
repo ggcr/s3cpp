@@ -92,19 +92,18 @@ TEST(AUTH, MinIOBasicRequest) {
 
 	try {
 		HttpResponse resp = req.execute();
-
 		EXPECT_EQ(resp.status(), 200);
-
 		// std::println("RESPONSE STATUS: {}", resp.status());
 		// std::println("RESPONSE HEADERS: {}", resp.headers());
 		// std::println("RESPONSE BODY: {}", resp.body());
+
   } catch (const std::exception &e) {
 		// Our exception in the GitHub CI will be "Couldn't connect to server"
 		// will be exactly returned as a runtime error like so:
 		// `libcurl error: Couldn't connect to server`
-		
 		const std::string emsg = e.what();
-		if (emsg == "libcurl error: Couldn't connect to server") {
+		// CI has a different libcurl version xd
+		if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
 			GTEST_SKIP_("Skipping MinIOBasicRequest: Server not up");
 		}
 		throw;
