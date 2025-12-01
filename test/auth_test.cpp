@@ -1,9 +1,7 @@
+#include "gtest/gtest.h"
 #include <gtest/gtest.h>
 #include <s3cpp/auth.h>
 #include <s3cpp/httpclient.h>
-
-// TODO(cristian): Skip the functional tests that actually query MinIO if its
-// not up
 
 TEST(AUTH, SHA256HexDigest) {
   auto signer = AWSSigV4Signer("minio_access", "minio_secret");
@@ -91,11 +89,25 @@ TEST(AUTH, MinIOBasicRequest) {
                         .header("X-Amz-Date", timestamp)
                         .header("X-Amz-Content-Sha256", empty_payload_hash);
   signer.sign(req);
-  HttpResponse resp = req.execute();
 
-	EXPECT_EQ(resp.status(), 200);
+	try {
+		HttpResponse resp = req.execute();
 
-  // std::println("RESPONSE STATUS: {}", resp.status());
-  // std::println("RESPONSE HEADERS: {}", resp.headers());
-  // std::println("RESPONSE BODY: {}", resp.body());
+		EXPECT_EQ(resp.status(), 200);
+
+		std::println("RESPONSE STATUS: {}", resp.status());
+		std::println("RESPONSE HEADERS: {}", resp.headers());
+		std::println("RESPONSE BODY: {}", resp.body());
+  } catch (const std::exception &e) {
+		// Our exception in the GitHub CI will be "Couldn't connect to server"
+		// will be exactly returned as a runtime error like so:
+		// `libcurl error: Couldn't connect to server`
+		
+		const std::string emsg = e.what();
+		if (emsg == "libcurl error: Couldn't connect to server") {
+			GTEST_SKIP_("Skipping MinIOBasicRequest: Server not up");
+		}
+		throw;
+	}
+
 }

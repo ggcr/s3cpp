@@ -73,7 +73,7 @@ HttpResponse HttpClient::execute_get(HttpRequest &request) {
   curl_slist_free_all(list);
   if (code != CURLE_OK) {
     throw std::runtime_error(
-        std::format("libcurl error for request: {}", curl_easy_strerror(code)));
+        std::format("libcurl error: {}", curl_easy_strerror(code)));
   }
 
   // get HTTP code
