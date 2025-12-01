@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <s3cpp/auth.h>
 #include <s3cpp/httpclient.h>
+#include <print>
 
 TEST(AUTH, SHA256HexDigest) {
   auto signer = AWSSigV4Signer("minio_access", "minio_secret");

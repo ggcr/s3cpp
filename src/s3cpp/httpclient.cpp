@@ -1,7 +1,6 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <format>
-#include <iostream>
 #include <s3cpp/httpclient.h>
 #include <stdexcept>
 #include <string>
