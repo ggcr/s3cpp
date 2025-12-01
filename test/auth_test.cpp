@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 #include <s3cpp/auth.h>
 #include <s3cpp/httpclient.h>
-#include <print>
 
 TEST(AUTH, SHA256HexDigest) {
   auto signer = AWSSigV4Signer("minio_access", "minio_secret");
@@ -96,9 +95,9 @@ TEST(AUTH, MinIOBasicRequest) {
 
 		EXPECT_EQ(resp.status(), 200);
 
-		std::println("RESPONSE STATUS: {}", resp.status());
-		std::println("RESPONSE HEADERS: {}", resp.headers());
-		std::println("RESPONSE BODY: {}", resp.body());
+		// std::println("RESPONSE STATUS: {}", resp.status());
+		// std::println("RESPONSE HEADERS: {}", resp.headers());
+		// std::println("RESPONSE BODY: {}", resp.body());
   } catch (const std::exception &e) {
 		// Our exception in the GitHub CI will be "Couldn't connect to server"
 		// will be exactly returned as a runtime error like so:
