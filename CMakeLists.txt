@@ -20,11 +20,13 @@ find_package(CURL)
 find_package(OpenSSL REQUIRED)
 
 # Create lib and app
-add_library(s3cpplib 
+add_library(s3cpplib
 	src/s3cpp/httpclient.cpp
 	src/s3cpp/auth.cpp
+	src/s3cpp/xml.cpp
 )
 target_include_directories(s3cpplib PUBLIC src)
+target_link_libraries(s3cpplib PUBLIC CURL::libcurl OpenSSL::Crypto)
 add_executable(s3cpp_app main.cpp)
 target_link_libraries(s3cpp_app s3cpplib)
 
@@ -33,6 +35,7 @@ enable_testing()
 add_executable(tests 
 	test/httpclient_test.cpp
 	test/auth_test.cpp
+	test/xml_test.cpp
 )
 
 target_link_libraries(tests s3cpplib GTest::gtest_main GTest::gmock_main CURL::libcurl OpenSSL::Crypto)
