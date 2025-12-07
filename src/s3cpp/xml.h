@@ -25,6 +25,7 @@ public:
         std::string currentTag = "";
         std::string currentTagClose = "";
         std::string currentBody = "";
+				std::string currentPath = "";
         auto tagStack = std::stack<std::string> {};
 
         for (char ch : sv) {
@@ -32,8 +33,22 @@ public:
             switch (state) {
             case States::Start: {
                 if (ch == '<')
-                    state = States::TagName;
+                    state = States::Processing;
                 break;
+            }
+            case States::Processing: {
+                // processing instructions are always self-contained
+                if (ch == '?')
+                    state = States::Start;
+                else {
+                    state = States::TagName;
+                    currentTag.push_back(ch);
+										if (currentPath.size() > 0 && currentPath[currentPath.size() - 2] != '.') {
+											currentPath.push_back('.');
+										}
+										currentPath.push_back(ch);
+                }
+								break;
             }
             case States::TagName: {
                 if (ch == ' ')
@@ -44,6 +59,7 @@ public:
                     currentTag = "";
                 } else {
                     currentTag.push_back(ch);
+										currentPath.push_back(ch);
                 }
                 break;
             }
@@ -70,7 +86,9 @@ public:
                         currentTagClose = tagStack.top();
                 } else {
                     currentTag.push_back(ch);
-                    state = States::TagName;
+										currentPath.push_back('.');
+										currentPath.push_back(ch);
+                    state = States::Processing;
                 }
                 break;
             }
@@ -93,14 +111,17 @@ public:
                 // Note: For now we will only return the leaf nodes
                 // aka, those nodes that have an actual value
                 if (currentBody.size() != 0) {
-                    xmlElements.push_back(XMLNode { tagName, currentBody });
-                    std::println("[EMIT] Tag={}, Body={}", tagName, currentBody);
+                    xmlElements.push_back(XMLNode { currentPath, currentBody });
+                    // std::println("[EMIT] Tag={}, Body={}", currentPath, currentBody);
                 }
 
                 state = States::Body;
 
                 // Cleanup
-                tagStack.pop();
+								tagStack.pop();
+								if (auto pos = currentPath.find_last_of('.'); pos != std::string::npos) {
+									currentPath.erase(pos, std::string::npos);
+								}
                 currentBody = "";
                 break;
             }
@@ -117,6 +138,7 @@ public:
 private:
     enum class States : int {
         Start,
+        Processing,
         TagName,
         TagAttr,
         Body,

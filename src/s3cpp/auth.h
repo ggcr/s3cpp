@@ -13,7 +13,7 @@ public:
     AWSSigV4Signer(const std::string& access, const std::string& secret)
         : access_key(std::move(access))
         , secret_key(std::move(secret))
-        , aws_region("us-east-1") { }
+        , aws_region("us-east-2") { }
     AWSSigV4Signer(const std::string& access,
         const std::string& secret,
         const std::string& region)
