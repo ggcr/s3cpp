@@ -1,4 +1,3 @@
-#include "gtest/gtest.h"
 #include <gtest/gtest.h>
 #include <s3cpp/auth.h>
 #include <s3cpp/httpclient.h>
@@ -79,11 +78,9 @@ TEST(AUTH, MinIOBasicRequest) {
     const std::string host = "127.0.0.1:9000";
     const std::string URI = "/";
     const std::string URL = std::format("http://{}{}", host, URI);
-    const std::string timestamp = signer.getTimestamp();
     const std::string empty_payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     HttpRequest req = client.get(URL)
                           .header("Host", host)
-                          .header("X-Amz-Date", timestamp)
                           .header("X-Amz-Content-Sha256", empty_payload_hash);
     signer.sign(req);
 

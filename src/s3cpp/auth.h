@@ -25,9 +25,9 @@ public:
         // Autorization
         const std::string hash_algo = "AWS4-HMAC-SHA256";
 
-        // Compute date
-        const auto req_headers = request.getHeaders();
-        const std::string timestamp = req_headers.at("X-Amz-Date");
+        // Compute date and add it as a header
+				const std::string timestamp = this->getTimestamp();
+				request.header("X-Amz-Date", timestamp);
         const std::string request_date = timestamp.substr(0, 8);
 
         // Credential
@@ -36,7 +36,7 @@ public:
         // Signed headers
         std::string signed_headers = "";
         uint_fast16_t i = 0;
-        for (const auto& header : req_headers) {
+        for (const auto& header : request.getHeaders()) {
             std::string kHeader = header.first;
             std::transform(kHeader.begin(), kHeader.end(), kHeader.begin(),
                 ::tolower);

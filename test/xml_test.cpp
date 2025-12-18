@@ -1,4 +1,3 @@
-#include "gtest/gtest.h"
 #include <gtest/gtest.h>
 #include <s3cpp/xml.hpp>
 
