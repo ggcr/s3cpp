@@ -87,9 +87,9 @@ TEST(AUTH, MinIOBasicRequest) {
     try {
         HttpResponse resp = req.execute();
         EXPECT_EQ(resp.status(), 200);
-        std::println("RESPONSE STATUS: {}", resp.status());
-        std::println("RESPONSE HEADERS: {}", resp.headers());
-        std::println("RESPONSE BODY: {}", resp.body());
+        // std::println("RESPONSE STATUS: {}", resp.status());
+        // std::println("RESPONSE HEADERS: {}", resp.headers());
+        // std::println("RESPONSE BODY: {}", resp.body());
 
     } catch (const std::exception& e) {
         // Our exception in the GitHub CI will be "Couldn't connect to server"
