@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 #include <gtest/gtest.h>
-#include <s3cpp/xml.h>
+#include <s3cpp/xml.hpp>
 
 TEST(XML, XMLBasicTag) {
     // <Bucket>Name</Bucket>

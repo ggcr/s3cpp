@@ -1,5 +1,5 @@
 #include <s3cpp/auth.h>
-#include <s3cpp/xml.h>
+#include <s3cpp/xml.hpp>
 
 class S3Client {
 public:
