@@ -26,4 +26,5 @@
 
 TEST(S3, Hello) {
     S3Client client("minio_access", "minio_secret");
+		client.list_objects("my-bucket", "path/to/file.txt");
 }

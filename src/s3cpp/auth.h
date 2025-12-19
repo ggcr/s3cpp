@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
+#include <print>
+#include <ranges>
 #include <string>
 
 class AWSSigV4Signer {
@@ -26,8 +28,8 @@ public:
         const std::string hash_algo = "AWS4-HMAC-SHA256";
 
         // Compute date and add it as a header
-				const std::string timestamp = this->getTimestamp();
-				request.header("X-Amz-Date", timestamp);
+        const std::string timestamp = this->getTimestamp();
+        request.header("X-Amz-Date", timestamp);
         const std::string request_date = timestamp.substr(0, 8);
 
         // Credential
@@ -50,24 +52,18 @@ public:
         std::string hex_cannonical_request = hex(sha256(createCannonicalRequest(request)));
 
         // To sign
-        std::string string_to_sign = std::format("{}\n{}\n{}\n{}", hash_algo, timestamp, credential_scope,
-            hex_cannonical_request);
-        std::string signature = hex(HMAC_SHA256(
-            deriveSigningKey(request_date), SHA256_DIGEST_LENGTH, string_to_sign));
+        std::string string_to_sign = std::format("{}\n{}\n{}\n{}", hash_algo, timestamp, credential_scope, hex_cannonical_request);
+        std::string signature = hex(HMAC_SHA256(deriveSigningKey(request_date), SHA256_DIGEST_LENGTH, string_to_sign));
 
         // Build the final auth header value
-        request.header(
-            "Authorization",
-            std::format("{} Credential={}/{}, SignedHeaders={}, Signature={}",
-                hash_algo, access_key, credential_scope, signed_headers,
-                signature));
+        request.header("Authorization", std::format("{} Credential={}/{}, SignedHeaders={}, Signature={}", hash_algo, access_key, credential_scope, signed_headers, signature));
     }
 
     std::string createCannonicalRequest(HttpRequest& request) {
         const std::string http_verb = getHttpVerb(request.getHttpMethod());
+        std::string url = request.getURL();
 
         // URI
-        std::string url = request.getURL();
         std::string uri {};
         if (size_t bpos = url.find("amazonaws.com"); bpos != std::string::npos) {
             uri = url.erase(0, bpos + 13);
@@ -80,13 +76,30 @@ public:
                 uri = "/";
             }
         }
+        size_t begin_q = uri.find("?");
+        const std::string cannonical_uri = (begin_q != std::string::npos) ? uri.substr(0, begin_q) : uri;
 
         // URI Query-string
-        // For now let's assume the request does not include any query string...
-        if (size_t epos = url.find("?"); epos != std::string::npos) {
-            uri = url.erase(epos, uri.size());
+        std::map<std::string, std::string> query_params;
+        while (begin_q != std::string::npos) {
+            uri = uri.substr(begin_q + 1);
+            begin_q = uri.find("&");
+            const std::string query_param = uri.substr(0, begin_q);
+            auto parts = std::views::split(query_param, '=')
+                | std::views::transform([](auto&& range) {
+                      return std::string(range.begin(), range.end());
+                  })
+                | std::ranges::to<std::vector<std::string>>();
+            query_params[parts[0]] = parts[1];
         }
+        // Insert alphabetically-sorted query params on the Cannonical Request
         std::string query_str = "";
+        for (const auto& [key, value] : query_params) {
+            if (query_str.size() > 0) {
+                query_str += "&";
+            }
+            query_str += std::format("{}={}", url_encode(key), url_encode(value));
+        }
 
         // Canonical Headers + SignedHeaders
         const std::map<std::string, std::string> headers = request.getHeaders();
@@ -107,7 +120,7 @@ public:
         // Hashed payload (assume empty for now)
         const std::string empty_payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-        return std::format("{}\n{}\n{}\n{}\n{}\n{}", http_verb, uri, query_str,
+        return std::format("{}\n{}\n{}\n{}\n{}\n{}", http_verb, cannonical_uri, query_str,
             cheaders, signed_headers, empty_payload_hash);
     }
 
@@ -133,6 +146,21 @@ public:
                << static_cast<int>(hash[i]);
         }
         return ss.str();
+    }
+
+    std::string url_encode(const std::string& value) {
+        std::string encoded;
+        encoded.reserve(value.size() * 3);
+
+        for (unsigned char c : value) {
+            // RFC 3986
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
+                encoded += c;
+            } else {
+                encoded += std::format("%{:02X}", c);
+            }
+        }
+        return encoded;
     }
 
     // Move to S3 client class
