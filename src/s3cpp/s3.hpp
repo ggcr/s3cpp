@@ -3,6 +3,7 @@
 
 class S3Client {
 public:
+	// TODO(cristian): We should accept and define the endpoint url here
     S3Client(const std::string& access, const std::string& secret)
         : Client(HttpClient())
         , Signer(AWSSigV4Signer(access, secret))
@@ -17,14 +18,10 @@ public:
 		}
 
     void list_objects(const std::string& bucket, const std::string& prefix) {
-        // TODO(cristian): Decide what to do with Host, if it will always be the same as the URL,
-        // then we can autoamtically create this header on the HttpClient
-        // TODO(cristian): This is currently hardcoded to point to MinIO Docker IP-Port...
+        // TODO(cristian): Decide what to do with the Host header
 				
-        const std::string empty_payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-        HttpRequest req = Client.get(std::format("http://127.0.0.1:9000/{}?prefix={}&max-keys=2", bucket, prefix))
-                              .header("Host", "127.0.0.1")
-                              .header("X-Amz-Content-Sha256", empty_payload_hash);
+        HttpRequest req = Client.get(std::format("http://127.0.0.1:9000/{}?prefix={}", bucket, prefix))
+                              .header("Host", "127.0.0.1");
         Signer.sign(req);
 
 				HttpResponse res = req.execute();

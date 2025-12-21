@@ -75,22 +75,15 @@ TEST(AUTH, MinIOBasicRequest) {
     HttpClient client {};
 
     // prepare request
-    const std::string host = "127.0.0.1:9000";
-    const std::string URI = "/";
-    const std::string URL = std::format("http://{}{}", host, URI);
     const std::string empty_payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-    HttpRequest req = client.get(URL)
-                          .header("Host", host)
+    HttpRequest req = client.get("http://127.0.0.1:9000/")
+                          .header("Host", "127.0.0.1")
                           .header("X-Amz-Content-Sha256", empty_payload_hash);
     signer.sign(req);
 
     try {
         HttpResponse resp = req.execute();
         EXPECT_EQ(resp.status(), 200);
-        // std::println("RESPONSE STATUS: {}", resp.status());
-        // std::println("RESPONSE HEADERS: {}", resp.headers());
-        // std::println("RESPONSE BODY: {}", resp.body());
-
     } catch (const std::exception& e) {
         // Our exception in the GitHub CI will be "Couldn't connect to server"
         // will be exactly returned as a runtime error like so:

@@ -1,4 +1,5 @@
-#include <print>
+#include <charconv>
+#include <format>
 #include <stack>
 #include <stdexcept>
 #include <string>
@@ -25,7 +26,8 @@ public:
         std::string currentTag = "";
         std::string currentTagClose = "";
         std::string currentBody = "";
-				std::string currentPath = "";
+        std::string currentPath = "";
+        std::string currentEntity = "";
         auto tagStack = std::stack<std::string> {};
 
         for (char ch : sv) {
@@ -43,12 +45,12 @@ public:
                 else {
                     state = States::TagName;
                     currentTag.push_back(ch);
-										if (currentPath.size() > 0 && currentPath[currentPath.size() - 2] != '.') {
-											currentPath.push_back('.');
-										}
-										currentPath.push_back(ch);
+                    if (currentPath.size() >= 2 && currentPath[currentPath.size() - 2] != '.') {
+                        currentPath.push_back('.');
+                    }
+                    currentPath.push_back(ch);
                 }
-								break;
+                break;
             }
             case States::TagName: {
                 if (ch == ' ')
@@ -59,7 +61,7 @@ public:
                     currentTag = "";
                 } else {
                     currentTag.push_back(ch);
-										currentPath.push_back(ch);
+                    currentPath.push_back(ch);
                 }
                 break;
             }
@@ -74,8 +76,21 @@ public:
             case States::Body: {
                 if (ch == '<') {
                     state = States::Tag;
+                } else if (ch == '&') {
+                    state = States::Entity;
                 } else {
                     currentBody.push_back(ch);
+                }
+                break;
+            }
+            case States::Entity: {
+                if (ch == ';') {
+                    // Decode entity and append it to currentBody
+                    state = States::Body;
+                    currentBody.push_back(decodeXMLEntity(currentEntity));
+                    currentEntity = "";
+                } else {
+                    currentEntity.push_back(ch);
                 }
                 break;
             }
@@ -86,8 +101,8 @@ public:
                         currentTagClose = tagStack.top();
                 } else {
                     currentTag.push_back(ch);
-										currentPath.push_back('.');
-										currentPath.push_back(ch);
+                    currentPath.push_back('.');
+                    currentPath.push_back(ch);
                     state = States::Processing;
                 }
                 break;
@@ -118,10 +133,10 @@ public:
                 state = States::Body;
 
                 // Cleanup
-								tagStack.pop();
-								if (auto pos = currentPath.find_last_of('.'); pos != std::string::npos) {
-									currentPath.erase(pos, std::string::npos);
-								}
+                tagStack.pop();
+                if (auto pos = currentPath.find_last_of('.'); pos != std::string::npos) {
+                    currentPath.erase(pos, std::string::npos);
+                }
                 currentBody = "";
                 break;
             }
@@ -135,6 +150,41 @@ public:
             throw std::runtime_error("Something went wrong");
     }
 
+    char decodeXMLEntity(const std::string& entity) {
+        // XML escape characters
+        if (entity == "quot")
+            return '"';
+        else if (entity == "apos")
+            return '\'';
+        else if (entity == "lt")
+            return '<';
+        else if (entity == "gt")
+            return '>';
+        else if (entity == "amp")
+            return '&';
+
+        // XML numerical values (i.e. ETags using quotes)
+        int code = 0;
+        int base;
+        std::from_chars_result result;
+        if (entity.starts_with('#') && entity.size() > 1) {
+            if (entity[1] == 'x' || entity[1] == 'X') {
+                // Hex: #xhhhh
+                base = 16;
+                result = std::from_chars(entity.data() + 2, entity.data() + entity.size(), code, base);
+            } else {
+                // Decimal: #hhhh
+                base = 10;
+                result = std::from_chars(entity.data() + 1, entity.data() + entity.size(), code, base);
+            }
+        }
+        if (result.ec == std::errc {}) {
+            return static_cast<char>(code);
+        }
+
+        throw std::runtime_error(std::format("Unknown XML entity: &{};", entity));
+    }
+
 private:
     enum class States : int {
         Start,
@@ -142,6 +192,7 @@ private:
         TagName,
         TagAttr,
         Body,
+        Entity,
         Tag,
         TagClose,
         Emit,

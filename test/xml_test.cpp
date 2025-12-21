@@ -99,3 +99,31 @@ TEST(XML, XMLAWSListBucket) {
     EXPECT_EQ(XMLValues[3].tag, "ListAllMyBucketsResult.Buckets.Bucket.CreationDate");
     EXPECT_EQ(XMLValues[3].value, "2025-12-07T14:32:30.240Z");
 }
+
+TEST(XML, XMLHandleDecimalEntity) {
+    // <?xml version="1.0" encoding="UTF-8"?>
+    // <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    //   <Contents>
+    //     <ETag>&#34;This ETag has quotes!&#34;</ETag>
+    //   </Contents>
+    // </ListBucketResult>
+    auto parser = XMLParser();
+    auto XMLValues = parser.parse(R"(<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Contents><ETag>&#34;This ETag has quotes!&#34;</ETag></Contents></ListBucketResult>)");
+    EXPECT_EQ(XMLValues.size(), 1);
+    EXPECT_EQ(XMLValues[0].tag, "ListBucketResult.Contents.ETag");
+    EXPECT_EQ(XMLValues[0].value, "\"This ETag has quotes!\"");
+}
+
+TEST(XML, XMLHandleHexEntity) {
+    // <?xml version="1.0" encoding="UTF-8"?>
+    // <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    //   <Contents>
+    //     <ETag>&#x22;This ETag has quotes!&#x22;</ETag>
+    //   </Contents>
+    // </ListBucketResult>
+    auto parser = XMLParser();
+    auto XMLValues = parser.parse(R"(<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Contents><ETag>&#x22;This ETag has quotes!&#x22;</ETag></Contents></ListBucketResult>)");
+    EXPECT_EQ(XMLValues.size(), 1);
+    EXPECT_EQ(XMLValues[0].tag, "ListBucketResult.Contents.ETag");
+    EXPECT_EQ(XMLValues[0].value, "\"This ETag has quotes!\"");
+}
