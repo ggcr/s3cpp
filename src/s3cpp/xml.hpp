@@ -6,6 +6,50 @@
 #include <utility>
 #include <vector>
 
+// ListBucketResult
+// https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
+
+struct Contents {
+    std::string ChecksumAlgorithm;
+    std::string ChecksumType;
+    std::string ETag;
+    std::string Key;
+    std::string LastModified;
+    struct Owner_ {
+        std::string DisplayName;
+        std::string ID;
+    } Owner;
+    struct RestoreStatus_ {
+        bool IsRestoreInProgress;
+        std::string RestoreExpiryDate;
+    } RestoreStatus;
+    int64_t Size;
+    std::string StorageClass;
+};
+
+struct CommonPrefix {
+    std::string Prefix;
+};
+
+struct ListBucketResult {
+    bool IsTruncated;
+    std::string Marker;
+    std::string NextMarker;
+    std::vector<Contents> Contents;
+    std::string Name;
+    std::string Prefix;
+    std::string Delimiter;
+    int MaxKeys;
+    std::vector<CommonPrefix> CommonPrefixes;
+    std::string EncodingType;
+    int KeyCount;
+    std::string ContinuationToken;
+    std::string NextContinuationToken;
+    std::string StartAfter;
+};
+
+// We will use a regular Key Value struct to represent the raw XML nodes
+// TODO(cristian): Make private
 struct XMLNode {
     const std::string tag;
     const std::string value;
@@ -14,7 +58,7 @@ struct XMLNode {
 class XMLParser {
 public:
     // Finite State Machine (FSM) for parsing S3 valid XML
-    // See: TODO(cristian)
+    // See the automata on #10 whiteboard: https://ggcr.github.io/whiteboards/
     std::vector<XMLNode> parse(const std::string& xml) {
         auto xmlElements = std::vector<XMLNode>();
         auto sv = std::string_view { xml };
@@ -163,26 +207,45 @@ public:
         else if (entity == "amp")
             return '&';
 
-        // XML numerical values (i.e. ETags using quotes)
-        int code = 0;
-        int base;
+        return parseNumber<char>(entity);
+
+        throw std::runtime_error(std::format("Unknown XML entity: &{};", entity));
+    }
+
+    template <typename T>
+    T parseNumber(const std::string s) {
+        int code;
         std::from_chars_result result;
-        if (entity.starts_with('#') && entity.size() > 1) {
-            if (entity[1] == 'x' || entity[1] == 'X') {
+        int base = 10;
+
+        // Parse XML numerical entities (i.e. '&#34;')
+        if (s.starts_with('#') && s.size() > 1) {
+            if (s[1] == 'x' || s[1] == 'X') {
                 // Hex: #xhhhh
                 base = 16;
-                result = std::from_chars(entity.data() + 2, entity.data() + entity.size(), code, base);
+                result = std::from_chars(s.data() + 2, s.data() + s.size(), code, base);
             } else {
                 // Decimal: #hhhh
                 base = 10;
-                result = std::from_chars(entity.data() + 1, entity.data() + entity.size(), code, base);
+                result = std::from_chars(s.data() + 1, s.data() + s.size(), code, base);
             }
-        }
-        if (result.ec == std::errc {}) {
-            return static_cast<char>(code);
+        } else { // Regular case
+            result = std::from_chars(s.data(), s.data() + s.size(), code, base);
         }
 
-        throw std::runtime_error(std::format("Unknown XML entity: &{};", entity));
+        if (result.ec == std::errc {}) {
+            return static_cast<T>(code);
+        }
+        throw std::runtime_error(std::format("Unable to parse number from '{}'", s));
+    }
+
+    bool parseBool(const std::string& s) {
+        if (s == "True" || s == "true")
+            return true;
+        else if (s == "False" || s == "false")
+            return false;
+        else
+            throw std::runtime_error(std::format("Unable to parse boolean from string: '{}'", s));
     }
 
 private:
