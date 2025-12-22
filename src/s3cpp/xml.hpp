@@ -6,47 +6,6 @@
 #include <utility>
 #include <vector>
 
-// ListBucketResult
-// https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
-
-struct Contents {
-    std::string ChecksumAlgorithm;
-    std::string ChecksumType;
-    std::string ETag;
-    std::string Key;
-    std::string LastModified;
-    struct Owner_ {
-        std::string DisplayName;
-        std::string ID;
-    } Owner;
-    struct RestoreStatus_ {
-        bool IsRestoreInProgress;
-        std::string RestoreExpiryDate;
-    } RestoreStatus;
-    int64_t Size;
-    std::string StorageClass;
-};
-
-struct CommonPrefix {
-    std::string Prefix;
-};
-
-struct ListBucketResult {
-    bool IsTruncated;
-    std::string Marker;
-    std::string NextMarker;
-    std::vector<Contents> Contents;
-    std::string Name;
-    std::string Prefix;
-    std::string Delimiter;
-    int MaxKeys;
-    std::vector<CommonPrefix> CommonPrefixes;
-    std::string EncodingType;
-    int KeyCount;
-    std::string ContinuationToken;
-    std::string NextContinuationToken;
-    std::string StartAfter;
-};
 
 // We will use a regular Key Value struct to represent the raw XML nodes
 // TODO(cristian): Make private

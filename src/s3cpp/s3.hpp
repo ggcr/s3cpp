@@ -5,6 +5,49 @@
 #include <stdexcept>
 #include <unordered_set>
 
+// ListBucketResult
+// https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
+
+struct Contents_ {
+    std::string ChecksumAlgorithm;
+    std::string ChecksumType;
+    std::string ETag;
+    std::string Key;
+    std::string LastModified;
+    struct Owner_ {
+        std::string DisplayName;
+        std::string ID;
+    } Owner;
+    struct RestoreStatus_ {
+        bool IsRestoreInProgress;
+        std::string RestoreExpiryDate;
+    } RestoreStatus;
+    int64_t Size;
+    std::string StorageClass;
+};
+
+struct CommonPrefix {
+    std::string Prefix;
+};
+
+struct ListBucketResult {
+    bool IsTruncated;
+    std::string Marker;
+    std::string NextMarker;
+    std::vector<Contents_> Contents;
+    std::string Name;
+    std::string Prefix;
+    std::string Delimiter;
+    int MaxKeys;
+    std::vector<CommonPrefix> CommonPrefixes;
+    std::string EncodingType;
+    int KeyCount;
+    std::string ContinuationToken;
+    std::string NextContinuationToken;
+    std::string StartAfter;
+};
+
+
 class S3Client {
 public:
     // TODO(cristian): We should accept and define the endpoint url here
@@ -23,34 +66,36 @@ public:
         HttpRequest req = Client.get(std::format("http://127.0.0.1:9000/{}?prefix={}&max-keys={}", bucket, prefix, maxKeys)).header("Host", "127.0.0.1");
         Signer.sign(req);
         HttpResponse res = req.execute();
-        return deserializeListBucketResult(Parser.parse(res.body()));
+        ListBucketResult response;
+        response = deserializeListBucketResult(Parser.parse(res.body()));
+				return response;
     }
 
     ListBucketResult deserializeListBucketResult(const std::vector<XMLNode>& nodes) {
         // TODO(cristian): Detect and parse errors
         ListBucketResult response;
-				response.Contents.push_back(Contents{});
-				response.CommonPrefixes.push_back(CommonPrefix{});
-				int contentsIdx = 0; 
-				int commonPrefixesIdx = 0; 
+        response.Contents.push_back(Contents_{});
+        response.CommonPrefixes.push_back(CommonPrefix {});
+        int contentsIdx = 0;
+        int commonPrefixesIdx = 0;
 
-				// To keep track when we need to append an element
-				std::unordered_set<std::string> contentsKeySet; 
-				std::unordered_set<std::string> commonPrefixKeySet; 
+        // To keep track when we need to append an element
+        std::unordered_set<std::string> contentsKeySet;
+        std::unordered_set<std::string> commonPrefixKeySet;
 
         for (const auto& node : nodes) {
             /* Sigh... no reflection */
-						
-						// Check if we've seen this tag before in the current object
+
+            // Check if we've seen this tag before in the current object
             if (contentsKeySet.contains(node.tag)) {
-							response.Contents.push_back(Contents{});
-							contentsKeySet.clear();
-							contentsIdx++;
-						} else if (commonPrefixKeySet.contains(node.tag)) {
-							response.CommonPrefixes.push_back(CommonPrefix{});
-							commonPrefixKeySet.clear();
-							commonPrefixesIdx++;
-						}
+                response.Contents.push_back(Contents_{});
+                contentsKeySet.clear();
+                contentsIdx++;
+            } else if (commonPrefixKeySet.contains(node.tag)) {
+                response.CommonPrefixes.push_back(CommonPrefix {});
+                commonPrefixKeySet.clear();
+                commonPrefixesIdx++;
+            }
 
             if (node.tag == "ListBucketResult.IsTruncated") {
                 response.IsTruncated = Parser.parseBool(std::move(node.value));
@@ -94,12 +139,12 @@ public:
                 throw std::runtime_error(std::format("No case for ListBucketResult response found for: {}", node.tag));
             }
 
-						// Add already seen fields
+            // Add already seen fields
             if (node.tag.contains("ListBucketResult.Contents")) {
-							contentsKeySet.insert(node.tag);
-						} else if (node.tag.contains("ListBucketResult.CommonPrefix")) {
-							commonPrefixKeySet.insert(node.tag);
-						}
+                contentsKeySet.insert(node.tag);
+            } else if (node.tag.contains("ListBucketResult.CommonPrefix")) {
+                commonPrefixKeySet.insert(node.tag);
+            }
         }
         return response;
     }
