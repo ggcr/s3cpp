@@ -85,12 +85,11 @@ public:
             uri = uri.substr(begin_q + 1);
             begin_q = uri.find("&");
             const std::string query_param = uri.substr(0, begin_q);
-            auto parts = std::views::split(query_param, '=')
-                | std::views::transform([](auto&& range) {
-                      return std::string(range.begin(), range.end());
-                  })
-                | std::ranges::to<std::vector<std::string>>();
-            query_params[parts[0]] = parts[1];
+						// Split query params by '=' character
+						// Key=Value -> [Key, Value]
+						const int equalPos = query_param.find('=');
+						auto q = std::pair<std::string, std::string>(query_param.substr(0, equalPos), query_param.substr(equalPos+1));
+            query_params[q.first] = q.second;
         }
         // Insert alphabetically-sorted query params on the Cannonical Request
         std::string query_str = "";
