@@ -26,12 +26,13 @@ public:
         auto state = States::Start;
 
         // Setup buffers we will use
-        std::string currentTag = "";
-        std::string currentTagClose = "";
-        std::string currentBody = "";
-        std::string currentPath = "";
-        std::string currentEntity = "";
+        std::string currentTag;
+        std::string currentTagClose;
+        std::string currentBody;
+        std::string currentPath;
+        std::string currentEntity;
         auto tagStack = std::stack<std::string> {};
+				int tagCloseIdx = 0;
 
         for (char ch : sv) {
             auto prevState = state;
@@ -47,11 +48,11 @@ public:
                     state = States::Start;
                 else {
                     state = States::TagName;
-                    currentTag.push_back(ch);
+										currentTag += ch;
                     if (currentPath.size() >= 2 && currentPath[currentPath.size() - 2] != '.') {
-                        currentPath.push_back('.');
+												currentPath += '.';
                     }
-                    currentPath.push_back(ch);
+										currentPath += ch;
                 }
                 break;
             }
@@ -61,10 +62,10 @@ public:
                 else if (ch == '>') {
                     state = States::Body;
                     tagStack.push(currentTag);
-                    currentTag = "";
+                    currentTag.clear();
                 } else {
-                    currentTag.push_back(ch);
-                    currentPath.push_back(ch);
+										currentTag += ch;
+										currentPath += ch;
                 }
                 break;
             }
@@ -72,7 +73,7 @@ public:
                 if (ch == '>') {
                     state = States::Body;
                     tagStack.push(currentTag);
-                    currentTag = "";
+                    currentTag.clear();
                 }
                 break;
             }
@@ -82,7 +83,7 @@ public:
                 } else if (ch == '&') {
                     state = States::Entity;
                 } else {
-                    currentBody.push_back(ch);
+										currentBody += ch;
                 }
                 break;
             }
@@ -90,33 +91,36 @@ public:
                 if (ch == ';') {
                     // Decode entity and append it to currentBody
                     state = States::Body;
-                    currentBody.push_back(decodeXMLEntity(currentEntity));
-                    currentEntity = "";
+										currentBody += decodeXMLEntity(currentEntity);
+                    currentEntity.clear();
                 } else {
-                    currentEntity.push_back(ch);
+										currentEntity += ch;
                 }
                 break;
             }
             case States::Tag: {
                 if (ch == '/') {
                     state = States::TagClose;
-                    if (currentTagClose.size() == 0)
+                    if (tagCloseIdx == 0)
                         currentTagClose = tagStack.top();
                 } else {
-                    currentTag.push_back(ch);
-                    currentPath.push_back('.');
-                    currentPath.push_back(ch);
+										currentTag += ch;
+										currentPath += '.';
+										currentPath += ch;
                     state = States::Processing;
                 }
                 break;
             }
             case States::TagClose: {
-                if (ch != currentTagClose[0]) {
+                if (ch != currentTagClose[tagCloseIdx]) {
                     throw std::runtime_error(std::format("Invalid closing tag encountered: {} for char {}", currentTagClose, ch));
                 } else {
-                    currentTagClose.erase(0, 1);
-                    if (currentTagClose.size() == 0)
+                    // currentTagClose.erase(0, 1);
+										tagCloseIdx++;
+                    if (tagCloseIdx == currentTagClose.size()) {
                         state = States::Emit;
+												tagCloseIdx = 0;
+										}
                 }
                 break;
             }
@@ -140,7 +144,8 @@ public:
                 if (auto pos = currentPath.find_last_of('.'); pos != std::string::npos) {
                     currentPath.erase(pos, std::string::npos);
                 }
-                currentBody = "";
+                currentBody.clear();
+								currentTagClose.clear();
                 break;
             }
             default:

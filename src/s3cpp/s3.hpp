@@ -47,7 +47,6 @@ struct ListBucketResult {
     std::string StartAfter;
 };
 
-
 class S3Client {
 public:
     // TODO(cristian): We should accept and define the endpoint url here
@@ -66,35 +65,42 @@ public:
         HttpRequest req = Client.get(std::format("http://127.0.0.1:9000/{}?prefix={}&max-keys={}", bucket, prefix, maxKeys)).header("Host", "127.0.0.1");
         Signer.sign(req);
         HttpResponse res = req.execute();
-        ListBucketResult response;
-        response = deserializeListBucketResult(Parser.parse(res.body()));
-				return response;
+        ListBucketResult response = deserializeListBucketResult(Parser.parse(res.body()), maxKeys);
+        return response;
     }
 
-    ListBucketResult deserializeListBucketResult(const std::vector<XMLNode>& nodes) {
+    ListBucketResult deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
         // TODO(cristian): Detect and parse errors
         ListBucketResult response;
-        response.Contents.push_back(Contents_{});
+        response.Contents.reserve(maxKeys);
+        response.CommonPrefixes.reserve(maxKeys);
+
+        response.Contents.push_back(Contents_ {});
         response.CommonPrefixes.push_back(CommonPrefix {});
+
         int contentsIdx = 0;
         int commonPrefixesIdx = 0;
 
         // To keep track when we need to append an element
-        std::unordered_set<std::string> contentsKeySet;
-        std::unordered_set<std::string> commonPrefixKeySet;
+        std::vector<std::string_view> seenContents;
+        std::vector<std::string_view> seenCommonPrefix;
 
         for (const auto& node : nodes) {
             /* Sigh... no reflection */
 
             // Check if we've seen this tag before in the current object
-            if (contentsKeySet.contains(node.tag)) {
-                response.Contents.push_back(Contents_{});
-                contentsKeySet.clear();
-                contentsIdx++;
-            } else if (commonPrefixKeySet.contains(node.tag)) {
-                response.CommonPrefixes.push_back(CommonPrefix {});
-                commonPrefixKeySet.clear();
-                commonPrefixesIdx++;
+            if (node.tag.contains("ListBucketResult.Contents")) {
+                if (std::find(seenContents.begin(), seenContents.end(), node.tag) != seenContents.end()) {
+                    response.Contents.push_back(Contents_ {});
+                    seenContents.clear();
+                    contentsIdx++;
+                }
+            } else if (node.tag.contains("ListBucketResult.CommonPrefix")) {
+                if (std::find(seenCommonPrefix.begin(), seenCommonPrefix.end(), node.tag) != seenCommonPrefix.end()) {
+                    response.CommonPrefixes.push_back(CommonPrefix {});
+                    seenCommonPrefix.clear();
+                    commonPrefixesIdx++;
+                }
             }
 
             if (node.tag == "ListBucketResult.IsTruncated") {
@@ -141,9 +147,9 @@ public:
 
             // Add already seen fields
             if (node.tag.contains("ListBucketResult.Contents")) {
-                contentsKeySet.insert(node.tag);
+                seenContents.push_back(node.tag);
             } else if (node.tag.contains("ListBucketResult.CommonPrefix")) {
-                commonPrefixKeySet.insert(node.tag);
+                seenCommonPrefix.push_back(node.tag);
             }
         }
         return response;
