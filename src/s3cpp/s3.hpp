@@ -59,10 +59,19 @@ public:
         , Signer(AWSSigV4Signer(access, secret, region))
         , Parser(XMLParser()) { }
 
-    ListBucketResult list_objects(const std::string& bucket) { return list_objects(bucket, "/", 1000); }
-    ListBucketResult list_objects(const std::string& bucket, const std::string& prefix) { return list_objects(bucket, prefix, 1000); }
-    ListBucketResult list_objects(const std::string& bucket, const std::string& prefix, int maxKeys) {
-        HttpRequest req = Client.get(std::format("http://127.0.0.1:9000/{}?prefix={}&max-keys={}", bucket, prefix, maxKeys)).header("Host", "127.0.0.1");
+    ListBucketResult ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
+    ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
+    ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
+    ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken) {
+        // Silent-ly accept maxKeys > 1000, even though we will return 1K at most
+        // Pagination is opt-in as in the Go SDK, the user must be aware of this
+        std::string url;
+        if (continuationToken.size() > 0) {
+            url = std::format("http://127.0.0.1:9000/{}?list-type=2&prefix={}&max-keys={}&continuation-token={}", bucket, prefix, maxKeys, continuationToken);
+        } else {
+            url = std::format("http://127.0.0.1:9000/{}?list-type=2&prefix={}&max-keys={}", bucket, prefix, maxKeys);
+        }
+        HttpRequest req = Client.get(url).header("Host", "127.0.0.1");
         Signer.sign(req);
         HttpResponse res = req.execute();
         ListBucketResult response = deserializeListBucketResult(Parser.parse(res.body()), maxKeys);
@@ -86,6 +95,7 @@ public:
         std::vector<std::string_view> seenCommonPrefix;
 
         for (const auto& node : nodes) {
+            std::println("{}: {}", node.tag, node.value);
             /* Sigh... no reflection */
 
             // Check if we've seen this tag before in the current object
@@ -159,4 +169,35 @@ private:
     HttpClient Client;
     AWSSigV4Signer Signer;
     XMLParser Parser;
+};
+
+class ListObjectsPaginator {
+public:
+    ListObjectsPaginator(S3Client& client, const std::string& bucket, const std::string& prefix)
+        : client_(client)
+        , bucket_(bucket)
+        , prefix_(prefix)
+        , maxKeys_(1000) { }
+    ListObjectsPaginator(S3Client& client, const std::string& bucket, const std::string& prefix, int maxKeys)
+        : client_(client)
+        , bucket_(bucket)
+        , prefix_(prefix)
+        , maxKeys_(maxKeys) { }
+
+    bool HasMorePages() const { return hasMorePages_; }
+
+    ListBucketResult NextPage() {
+        ListBucketResult response = client_.ListObjects(bucket_, prefix_, maxKeys_, continuationToken_);
+        hasMorePages_ = response.IsTruncated;
+        continuationToken_ = response.NextContinuationToken;
+        return response;
+    }
+
+private:
+    S3Client& client_;
+    std::string bucket_;
+    std::string prefix_;
+    int maxKeys_;
+    bool hasMorePages_ = true;
+    std::string continuationToken_;
 };
