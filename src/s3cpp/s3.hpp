@@ -95,7 +95,6 @@ public:
         std::vector<std::string_view> seenCommonPrefix;
 
         for (const auto& node : nodes) {
-            std::println("{}: {}", node.tag, node.value);
             /* Sigh... no reflection */
 
             // Check if we've seen this tag before in the current object
@@ -129,6 +128,14 @@ public:
                 response.MaxKeys = Parser.parseNumber<int>(std::move(node.value));
             } else if (node.tag == "ListBucketResult.EncodingType") {
                 response.EncodingType = std::move(node.value);
+            } else if (node.tag == "ListBucketResult.KeyCount") {
+                response.KeyCount = Parser.parseNumber<int>(std::move(node.value));
+            } else if (node.tag == "ListBucketResult.ContinuationToken") {
+                response.ContinuationToken = std::move(node.value);
+            } else if (node.tag == "ListBucketResult.NextContinuationToken") {
+                response.NextContinuationToken = std::move(node.value);
+            } else if (node.tag == "ListBucketResult.StartAfter") {
+                response.StartAfter = std::move(node.value);
             } else if (node.tag == "ListBucketResult.Contents.ChecksumAlgorithm") {
                 response.Contents[contentsIdx].ChecksumAlgorithm = std::move(node.value);
             } else if (node.tag == "ListBucketResult.Contents.ChecksumType") {
@@ -162,6 +169,15 @@ public:
                 seenCommonPrefix.push_back(node.tag);
             }
         }
+
+        // Remove the initial empty object if it was never populated
+        if (!response.Contents.empty() && response.Contents[0].Key.empty()) {
+            response.Contents.erase(response.Contents.begin());
+        }
+        if (!response.CommonPrefixes.empty() && response.CommonPrefixes[0].Prefix.empty()) {
+            response.CommonPrefixes.erase(response.CommonPrefixes.begin());
+        }
+
         return response;
     }
 
