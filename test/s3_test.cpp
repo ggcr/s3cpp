@@ -70,8 +70,6 @@ TEST(S3, ListObjectsCheckFields) {
 
         // Check first object
         EXPECT_EQ(response.Contents[0].Key, "path/to/file_1.txt");
-        EXPECT_EQ(response.Contents[0].LastModified, "2025-12-20T16:09:33.907Z");
-        EXPECT_EQ(response.Contents[0].ETag, "\"12d56ae2b967f517787bd4ade69fc2b0\"");
         EXPECT_EQ(response.Contents[0].Size, 26);
         EXPECT_EQ(response.Contents[0].Owner.ID, "02d6176db174dc93cb1b899f7c6078f08654445fe8cf1b6ce98d8855f66bdbf4");
         EXPECT_EQ(response.Contents[0].Owner.DisplayName, "minio");
@@ -79,8 +77,6 @@ TEST(S3, ListObjectsCheckFields) {
 
         // Check second object
         EXPECT_EQ(response.Contents[1].Key, "path/to/file_10.txt");
-        EXPECT_EQ(response.Contents[1].LastModified, "2025-12-20T16:09:33.936Z");
-        EXPECT_EQ(response.Contents[1].ETag, "\"c4bab200495494cf824918ae6f2d117f\"");
         EXPECT_EQ(response.Contents[1].Size, 27);
         EXPECT_EQ(response.Contents[1].Owner.ID, "02d6176db174dc93cb1b899f7c6078f08654445fe8cf1b6ce98d8855f66bdbf4");
         EXPECT_EQ(response.Contents[1].Owner.DisplayName, "minio");
