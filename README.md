@@ -1,18 +1,17 @@
 # s3cpp
 
 > [!WARNING]
-> **WIP** Currently supports ListObjectsV2 with pagination
+> **WIP** Currently supports only ListObjectsV2
 
 A lightweight C++ client library for AWS S3, with zero 3rd party C++ dependencies (only libcurl and OpenSSL). Inspired by the AWS SDK for Go.
 
 ## Architecture
 
-Organized onto modular components:
+Each S3 Client is organized onto modular components:
 
-- **s3.hpp** - S3 client and paginator implementation
-- **httpclient.h/cpp** - HTTP/1.1 client built on libcurl
-- **auth.h/cpp** - AWS Signature V4 auth protocol (SigV4a is pending)
-- **xml.hpp** - My own custom FSM for parsing XML
+- **src/httpclient**: HTTP/1.1 client built on libCurl
+- **src/auth**: AWS Signature V4 auth protocol (SigV4a pending)
+- **src/xml** - A custom FSM for parsing XML
 
 ## Basic Usage
 
