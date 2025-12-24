@@ -24,7 +24,7 @@ add_library(s3cpplib
 	src/s3cpp/httpclient.cpp
 	src/s3cpp/auth.cpp
 	src/s3cpp/xml.hpp
-	src/s3cpp/s3.hpp
+	src/s3cpp/s3.cpp
 )
 target_include_directories(s3cpplib PUBLIC src)
 target_link_libraries(s3cpplib PUBLIC CURL::libcurl OpenSSL::Crypto)

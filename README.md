@@ -16,10 +16,10 @@ Each S3 Client is organized onto modular components:
 ## Basic Usage
 
 ```cpp
-#include <s3cpp/s3.hpp>
+#include <s3cpp/s3.h>
 
 int main() {
-    S3Client client("your_access_key", "your_secret_key");
+    S3Client client("minio_access", "minio_secret");
     // List 100 objects with a prefix
     ListBucketResult response = client.ListObjects("my-bucket", "path/to/", 100);
     for (const auto& obj : response.Contents) {
@@ -32,10 +32,10 @@ int main() {
 For buckets with many objects, use the paginator to automatically handle continuation tokens:
 
 ```cpp
-#include <s3cpp/s3.hpp>
+#include <s3cpp/s3.h>
 
 int main() {
-    S3Client client("your_access_key", "your_secret_key");
+    S3Client client("minio_access", "minio_secret");
     ListObjectsPaginator paginator(client, "my-bucket", "path/to/", 100);
 
     int totalObjects = 0;

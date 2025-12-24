@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include <s3cpp/s3.hpp>
+#include <s3cpp/s3.h>
 
 TEST(S3, ListObjectsNoPrefix) {
     S3Client client("minio_access", "minio_secret");
@@ -106,7 +106,7 @@ TEST(S3, ListObjectsPaginator) {
     S3Client client("minio_access", "minio_secret");
     try {
         // has 10K objects - fetch 100 per page
-        ListObjectsPaginator paginator(client, "my-bucket", "path/to/", 100);
+        ListObjectsPaginator paginator(client, "my-bucket", "path/to/", 99);
 
         int totalObjects = 0;
         int pageCount = 0;
