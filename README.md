@@ -9,9 +9,9 @@ A lightweight C++ client library for AWS S3, with zero 3rd party C++ dependencie
 
 Each S3 Client is organized onto modular components:
 
-- **src/httpclient**: HTTP/1.1 client built on libCurl
-- **src/auth**: AWS Signature V4 auth protocol (SigV4a pending)
-- **src/xml** - A custom FSM for parsing XML
+- `src/s3cpp/httpclient`: HTTP/1.1 client built on libCurl
+- `src/s3cpp/auth`: AWS Signature V4 auth protocol (SigV4a pending)
+- `src/s3cpp/xml`: A custom FSM for parsing XML
 
 ## Basic Usage
 
