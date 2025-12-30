@@ -106,7 +106,7 @@ TEST(S3, ListObjectsPaginator) {
     S3Client client("minio_access", "minio_secret");
     try {
         // has 10K objects - fetch 100 per page
-        ListObjectsPaginator paginator(client, "my-bucket", "path/to/", 99);
+        ListObjectsPaginator paginator(client, "my-bucket", "path/to/", 100);
 
         int totalObjects = 0;
         int pageCount = 0;
@@ -116,22 +116,14 @@ TEST(S3, ListObjectsPaginator) {
             totalObjects += page.Contents.size();
             pageCount++;
 
-            // Each page should have 100 objects except possibly the last
             if (paginator.HasMorePages()) {
                 EXPECT_EQ(page.Contents.size(), 100);
                 EXPECT_TRUE(page.IsTruncated);
             }
-
-            // Safety check to avoid infinite loop
-            ASSERT_LT(pageCount, 200);
         }
 
-        // Bucket has approximately 10K objects
-        // Allow some flexibility since bucket might have slightly more/less
-        EXPECT_GE(totalObjects, 10000);
-        EXPECT_LE(totalObjects, 10100);
-        EXPECT_GE(pageCount, 100);
-        EXPECT_LE(pageCount, 101);
+        EXPECT_EQ(totalObjects, 10000);
+        EXPECT_EQ(pageCount, 100);
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
         if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
