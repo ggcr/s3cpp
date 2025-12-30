@@ -60,7 +60,7 @@ public:
     }
 
     std::string createCannonicalRequest(HttpRequest& request) {
-        const std::string http_verb = getHttpVerb(request.getHttpMethod());
+        const std::string http_verb = request.getHttpMethodStr(request.getHttpMethod());
         std::string url = request.getURL();
 
         // URI
@@ -176,24 +176,6 @@ private:
     std::string access_key;
     std::string secret_key;
     std::string aws_region;
-
-    // Cannonicalize HTTP verb from the request
-    std::string getHttpVerb(const HttpMethod& http_method) {
-        switch (http_method) {
-        case HttpMethod::Get:
-            return "GET";
-        case HttpMethod::Head:
-            return "HEAD";
-        case HttpMethod::Post:
-            return "POST";
-        case HttpMethod::Put:
-            return "PUT";
-        case HttpMethod::Delete:
-            return "DELETE";
-        default:
-            throw std::runtime_error("No known Http Method");
-        }
-    }
 
     const unsigned char* deriveSigningKey(const std::string request_date) {
         const std::string initial_candidate = "AWS4" + secret_key;

@@ -3,13 +3,14 @@
 ListBucketResult S3Client::ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken) {
     // Silent-ly accept maxKeys > 1000, even though we will return 1K at most
     // Pagination is opt-in as in the Go SDK, the user must be aware of this
+    const std::string baseUrl = buildURL(bucket);
     std::string url;
     if (continuationToken.size() > 0) {
-        url = std::format("http://127.0.0.1:9000/{}?list-type=2&prefix={}&max-keys={}&continuation-token={}", bucket, prefix, maxKeys, continuationToken);
+        url = baseUrl + std::format("?list-type=2&prefix={}&max-keys={}&continuation-token={}", prefix, maxKeys, continuationToken);
     } else {
-        url = std::format("http://127.0.0.1:9000/{}?list-type=2&prefix={}&max-keys={}", bucket, prefix, maxKeys);
+        url = baseUrl + std::format("?list-type=2&prefix={}&max-keys={}", prefix, maxKeys);
     }
-    HttpRequest req = Client.get(url).header("Host", "127.0.0.1");
+    HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
     Signer.sign(req);
     HttpResponse res = req.execute();
     ListBucketResult response = deserializeListBucketResult(Parser.parse(res.body()), maxKeys);

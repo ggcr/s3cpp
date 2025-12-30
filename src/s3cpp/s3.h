@@ -47,33 +47,81 @@ struct ListBucketResult {
     std::string StartAfter;
 };
 
+enum class S3AddressingStyle {
+    VirtualHosted,
+    PathStyle
+};
+
 class S3Client {
 public:
     // TODO(cristian): We should accept and define the endpoint url here
     S3Client(const std::string& access, const std::string& secret)
         : Client(HttpClient())
         , Signer(AWSSigV4Signer(access, secret))
-        , Parser(XMLParser()) { }
+        , Parser(XMLParser())
+        , addressing_style_(S3AddressingStyle::VirtualHosted) {
+        // When no endpoint is provided we default to us-east-1 (flashbacks from vietnam)
+        endpoint_ = std::format("s3.us-east-1.amazonaws.com");
+    }
     S3Client(const std::string& access, const std::string& secret, const std::string& region)
         : Client(HttpClient())
         , Signer(AWSSigV4Signer(access, secret, region))
-        , Parser(XMLParser()) { }
+        , Parser(XMLParser())
+        , addressing_style_(S3AddressingStyle::VirtualHosted) {
+        // When no endpoint is provided we default to AWS
+        endpoint_ = std::format("s3.{}.amazonaws.com", region); // TODO(cristian): Ping to validate region
+    }
+    S3Client(const std::string& access, const std::string& secret, const std::string& customEndpoint, S3AddressingStyle style)
+        : Client(HttpClient())
+        , Signer(AWSSigV4Signer(access, secret))
+        , Parser(XMLParser())
+        , endpoint_(customEndpoint)
+        , addressing_style_(style) {
+    }
 
-    ListBucketResult GetObject(const std::string& bucket, const std::string& key) {
-			return ListBucketResult{};
-		}
+	// TODO(cristian): Implement deserialization
+	// TODO(cristian): Wrap onto std::expected
+	ListBucketResult GetObject(const std::string& bucket, const std::string& key) {
+			std::string url = buildURL(bucket) + std::format("/{}", key);
+			HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
+			Signer.sign(req);
+			HttpResponse res = req.execute();
+			std::println("{}", res.body());
+			ListBucketResult response = deserializeListBucketResult(Parser.parse(res.body()), 1000);
+			return response;
+	}
 
-    ListBucketResult ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
-    ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
-    ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
-    ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
+	ListBucketResult ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
+	ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
+	ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
+	ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
 
-    ListBucketResult deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
+	ListBucketResult deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
 
 private:
-    HttpClient Client;
-    AWSSigV4Signer Signer;
+	HttpClient Client;
+	AWSSigV4Signer Signer;
     XMLParser Parser;
+    std::string endpoint_;
+    S3AddressingStyle addressing_style_;
+
+    std::string buildURL(const std::string& bucket) const {
+        if (addressing_style_ == S3AddressingStyle::VirtualHosted) {
+            // bucket.s3.region.amazonaws.com/key
+            return std::format("https://{}.{}", bucket, endpoint_);
+        } else {
+            // endpoint/bucket/key
+            return std::format("http://{}/{}", endpoint_, bucket);
+        }
+    }
+
+    std::string getHostHeader(const std::string& bucket) const {
+        if (addressing_style_ == S3AddressingStyle::VirtualHosted) {
+            return std::format("{}.{}", bucket, endpoint_);
+        } else {
+            return endpoint_;
+        }
+    }
 };
 
 class ListObjectsPaginator {

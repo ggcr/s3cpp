@@ -97,6 +97,26 @@ public:
         return headers_;
     }
 
+		// Cannonicalize HTTP verb from the request
+    const std::string getHttpMethodStr(const HttpMethod& http_method) const {
+        switch (http_method) {
+        case HttpMethod::Get:
+            return "GET";
+        case HttpMethod::Head:
+            return "HEAD";
+        case HttpMethod::Post:
+            return "POST";
+        case HttpMethod::Put:
+            return "PUT";
+        case HttpMethod::Delete:
+            return "DELETE";
+        default:
+            throw std::runtime_error("No known Http Method");
+        }
+    }
+
+
+
 protected:
     HttpClient& client_;
     std::string URL_;
