@@ -12,6 +12,10 @@
 struct XMLNode {
     const std::string tag;
     const std::string value;
+
+		bool operator==(const XMLNode& other) {
+			return tag == other.tag && value == other.value;
+		}
 };
 
 class XMLParser {
