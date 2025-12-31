@@ -6,13 +6,16 @@
 #include <utility>
 #include <vector>
 
+
 // We will use a regular Key Value struct to represent the raw XML nodes
 // TODO(cristian): Make private
 struct XMLNode {
     const std::string tag;
     const std::string value;
 
-    auto operator<=>(const XMLNode&) const = default;
+		bool operator==(const XMLNode& other) const {
+			return tag == other.tag && value == other.value;
+		}
 };
 
 class XMLParser {
@@ -33,7 +36,7 @@ public:
         std::string currentPath;
         std::string currentEntity;
         auto tagStack = std::stack<std::string> {};
-        int tagCloseIdx = 0;
+				int tagCloseIdx = 0;
 
         for (char ch : sv) {
             auto prevState = state;
@@ -49,11 +52,11 @@ public:
                     state = States::Start;
                 else {
                     state = States::TagName;
-                    currentTag += ch;
+										currentTag += ch;
                     if (currentPath.size() >= 2 && currentPath[currentPath.size() - 2] != '.') {
-                        currentPath += '.';
+												currentPath += '.';
                     }
-                    currentPath += ch;
+										currentPath += ch;
                 }
                 break;
             }
@@ -65,8 +68,8 @@ public:
                     tagStack.push(currentTag);
                     currentTag.clear();
                 } else {
-                    currentTag += ch;
-                    currentPath += ch;
+										currentTag += ch;
+										currentPath += ch;
                 }
                 break;
             }
@@ -84,7 +87,10 @@ public:
                 } else if (ch == '&') {
                     state = States::Entity;
                 } else {
-                    currentBody += ch;
+									// Ignore leading spaces in the Body
+									if (ch == ' ' && currentBody.size() == 0)
+										break;
+									currentBody += ch;
                 }
                 break;
             }
@@ -92,10 +98,10 @@ public:
                 if (ch == ';') {
                     // Decode entity and append it to currentBody
                     state = States::Body;
-                    currentBody += decodeXMLEntity(currentEntity);
+										currentBody += decodeXMLEntity(currentEntity);
                     currentEntity.clear();
                 } else {
-                    currentEntity += ch;
+										currentEntity += ch;
                 }
                 break;
             }
@@ -105,9 +111,9 @@ public:
                     if (tagCloseIdx == 0)
                         currentTagClose = tagStack.top();
                 } else {
-                    currentTag += ch;
-                    currentPath += '.';
-                    currentPath += ch;
+										currentTag += ch;
+										currentPath += '.';
+										currentPath += ch;
                     state = States::Processing;
                 }
                 break;
@@ -117,11 +123,11 @@ public:
                     throw std::runtime_error(std::format("Invalid closing tag encountered: {} for char {}", currentTagClose, ch));
                 } else {
                     // currentTagClose.erase(0, 1);
-                    tagCloseIdx++;
+										tagCloseIdx++;
                     if (tagCloseIdx == currentTagClose.size()) {
                         state = States::Emit;
-                        tagCloseIdx = 0;
-                    }
+												tagCloseIdx = 0;
+										}
                 }
                 break;
             }
@@ -146,7 +152,7 @@ public:
                     currentPath.erase(pos, std::string::npos);
                 }
                 currentBody.clear();
-                currentTagClose.clear();
+								currentTagClose.clear();
                 break;
             }
             default:

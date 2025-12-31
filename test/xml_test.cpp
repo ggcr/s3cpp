@@ -137,10 +137,18 @@ TEST(XML, XMLParseError) {
     //   <RequestId>4442587FB7D0A2F9</RequestId>
     // </Error>
     auto parser = XMLParser();
-    auto XMLValues = parser.parse(R"(<?xml version="1.0" encoding="UTF-8"?> <Error> <Code>NoSuchKey</Code> <Message>The resource you requested does not exist</Message> <Resource>/mybucket/myfoto.jpg</Resource> <RequestId>4442587FB7D0A2F9</RequestId> </Error>)");
-    EXPECT_EQ(XMLValues.size(), 1);
+    auto XMLValues = parser.parse(R"(<?xml version="1.0" encoding="UTF-8"?><Error><Code>NoSuchKey</Code><Message>The resource you requested does not exist</Message><Resource>/mybucket/myfoto.jpg</Resource><RequestId>4442587FB7D0A2F9</RequestId></Error>)");
+    EXPECT_EQ(XMLValues.size(), 4);
 		EXPECT_EQ(XMLValues[0], (XMLNode{ .tag = "Error.Code", .value = "NoSuchKey" }));
 		EXPECT_EQ(XMLValues[1], (XMLNode{ .tag = "Error.Message", .value = "The resource you requested does not exist" }));
 		EXPECT_EQ(XMLValues[2], (XMLNode{ .tag = "Error.Resource", .value = "/mybucket/myfoto.jpg" }));
 		EXPECT_EQ(XMLValues[3], (XMLNode{ .tag = "Error.RequestId", .value = "4442587FB7D0A2F9" }));
+}
+
+TEST(XML, XMLTrailingSpaces) {
+	// <Bucket>          Name</Bucket>
+	auto parser = XMLParser();
+	auto XMLValues = parser.parse(R"(<Bucket>          Name</Bucket>)");
+	EXPECT_EQ(XMLValues.size(), 1);
+	EXPECT_EQ(XMLValues[0], (XMLNode{ .tag = "Bucket", .value = "Name" }));
 }
