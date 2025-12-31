@@ -1,4 +1,5 @@
 #include <charconv>
+#include <expected>
 #include <print>
 #include <s3cpp/auth.h>
 #include <s3cpp/xml.hpp>
@@ -47,6 +48,14 @@ struct ListBucketResult {
     std::string StartAfter;
 };
 
+struct Error {
+    std::string Code;
+    std::string Message;
+    std::string Resource;
+    int RequestId;
+    std::string HostId;
+};
+
 enum class S3AddressingStyle {
     VirtualHosted,
     PathStyle
@@ -79,28 +88,30 @@ public:
         , addressing_style_(style) {
     }
 
-	// TODO(cristian): Implement deserialization
-	// TODO(cristian): Wrap onto std::expected
-	ListBucketResult GetObject(const std::string& bucket, const std::string& key) {
-			std::string url = buildURL(bucket) + std::format("/{}", key);
-			HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
-			Signer.sign(req);
-			HttpResponse res = req.execute();
-			std::println("{}", res.body());
-			ListBucketResult response = deserializeListBucketResult(Parser.parse(res.body()), 1000);
-			return response;
-	}
+    // TODO(cristian): Implement deserialization
+    // TODO(cristian): Wrap onto std::expected
+    std::expected<ListBucketResult, Error> GetObject(const std::string& bucket, const std::string& key) {
+        std::string url = buildURL(bucket) + std::format("/{}", key);
+        HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
+        Signer.sign(req);
+        HttpResponse res = req.execute();
+        std::println("{}", res.body());
+        std::expected<ListBucketResult, Error> response = deserializeListBucketResult(Parser.parse(res.body()), 1000);
+        return response;
+    }
+    // TODO(cristian): HeadBucket and HeadObject
 
-	ListBucketResult ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
-	ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
-	ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
-	ListBucketResult ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
+    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
+    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
+    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
+    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
 
-	ListBucketResult deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
+    std::expected<ListBucketResult, Error> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
+    Error deserializeError(const std::vector<XMLNode>& nodes);
 
 private:
-	HttpClient Client;
-	AWSSigV4Signer Signer;
+    HttpClient Client;
+    AWSSigV4Signer Signer;
     XMLParser Parser;
     std::string endpoint_;
     S3AddressingStyle addressing_style_;
@@ -139,10 +150,12 @@ public:
 
     bool HasMorePages() const { return hasMorePages_; }
 
-    ListBucketResult NextPage() {
-        ListBucketResult response = client_.ListObjects(bucket_, prefix_, maxKeys_, continuationToken_);
-        hasMorePages_ = response.IsTruncated;
-        continuationToken_ = response.NextContinuationToken;
+    std::expected<ListBucketResult, Error> NextPage() {
+        auto response = client_.ListObjects(bucket_, prefix_, maxKeys_, continuationToken_);
+        if (response.has_value()) {
+            hasMorePages_ = response.value().IsTruncated;
+            continuationToken_ = response.value().NextContinuationToken;
+        }
         return response;
     }
 
