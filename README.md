@@ -20,9 +20,16 @@ Each S3 Client is organized onto modular components:
 
 int main() {
     S3Client client("minio_access", "minio_secret");
+    
     // List 100 objects with a prefix
-    ListBucketResult response = client.ListObjects("my-bucket", "path/to/", 100);
-    for (const auto& obj : response.Contents) {
+    auto result = client.ListObjects("my-bucket", "path/to/", 100);
+    
+    if (!result) {
+        std::println("Error: {}", result.error().Message);
+        return 1;
+    }
+    
+    for (const auto& obj : result->Contents) {
         std::println("Key: {}, Size: {}", obj.Key, obj.Size);
     }
     return 0;
@@ -41,13 +48,53 @@ int main() {
     int totalObjects = 0;
 
     while (paginator.HasMorePages()) {
-        ListBucketResult page = paginator.NextPage();
-        totalObjects += page.KeyCount;
+        std::expected<ListBucketResult, Error> page = paginator.NextPage();
 
-        for (const auto& obj : page.Contents) {
+				if (!page) {
+            std::println("Error: {}", page.error().Message);
+            return 1;
+        }
+
+        totalObjects += page->KeyCount;
+
+        for (const auto& obj : page->Contents) {
             std::println("Key: {}", obj.Key);
         }
     }
+    return 0;
+}
+```
+
+Checking if a bucket exists: 
+
+```cpp
+#include <s3cpp/s3.h>
+
+bool BucketExists(S3Client& client, const std::string& bucketName) {
+    auto result = client.ListObjects(bucketName, "", 1);
+    
+    if (!result) {
+        // Check the Resource Error field
+        if (result.error().Resource == "/Does-not-exist") {
+            return false;
+        }
+        // Other errors
+        std::println("Error checking bucket: {}", result.error().Message);
+        return false;
+    }
+    
+    return true;
+}
+
+int main() {
+    S3Client client("minio_access", "minio_secret");
+    
+    if (BucketExists(client, "my-bucket")) {
+        std::println("Bucket exists");
+    } else {
+        std::println("Bucket does not exist");
+    }
+    
     return 0;
 }
 ```
