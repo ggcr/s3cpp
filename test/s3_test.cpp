@@ -57,7 +57,7 @@ TEST(S3, ListObjectsDirPrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // Get 100 keys
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 100 });
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .MaxKeys = 100, .Prefix = "path/to/" });
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 100);
@@ -73,7 +73,7 @@ TEST(S3, ListObjectsDirPrefix) {
 TEST(S3, ListObjectsDirPrefixMaxKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 1 });
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .MaxKeys = 1, .Prefix = "path/to/" });
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1);
@@ -89,7 +89,7 @@ TEST(S3, ListObjectsDirPrefixMaxKeys) {
 TEST(S3, ListObjectsCheckFields) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 2 });
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .MaxKeys = 2, .Prefix = "path/to/" });
         if (!res)
             GTEST_FAIL();
 
@@ -244,7 +244,7 @@ TEST(S3, ListObjectsWithDelimiter) {
 TEST(S3, ListObjectsWithStartAfter) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 10, .StartAfter = "path/to/file_50.txt" });
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .MaxKeys = 10, .Prefix = "path/to/", .StartAfter = "path/to/file_50.txt" });
         if (!res) {
             GTEST_FAIL();
         }
@@ -264,7 +264,7 @@ TEST(S3, ListObjectsWithStartAfter) {
 TEST(S3, ListObjectsWithContinuationToken) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListObjectsResult, Error> firstPage = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 10 });
+        std::expected<ListObjectsResult, Error> firstPage = client.ListObjects("my-bucket", { .MaxKeys = 10, .Prefix = "path/to/" });
         if (!firstPage) {
             GTEST_FAIL();
         }
@@ -273,7 +273,7 @@ TEST(S3, ListObjectsWithContinuationToken) {
         EXPECT_FALSE(firstPage->NextContinuationToken.empty());
 
         // using continuation token
-        std::expected<ListObjectsResult, Error> secondPage = client.ListObjects("my-bucket", { .ContinuationToken = firstPage->NextContinuationToken, .Prefix = "path/to/", .MaxKeys = 10 });
+        std::expected<ListObjectsResult, Error> secondPage = client.ListObjects("my-bucket", { .ContinuationToken = firstPage->NextContinuationToken, .MaxKeys = 10, .Prefix = "path/to/" });
         if (!secondPage)
             GTEST_FAIL();
 
