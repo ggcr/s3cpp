@@ -23,8 +23,8 @@ int main() {
 
     // List 100 objects with a prefix
     auto result = client.ListObjects("my-bucket", {
-        .Prefix = "path/to/",
-        .MaxKeys = 100
+        .MaxKeys = 100,
+        .Prefix = "path/to/"
     });
 
     if (!result) {
