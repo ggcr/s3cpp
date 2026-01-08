@@ -1,7 +1,7 @@
 #include <expected>
 #include <s3cpp/s3.h>
 
-std::expected<ListBucketResult, Error> S3Client::ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken) {
+std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken) {
     // Silent-ly accept maxKeys > 1000, even though we will return 1K at most
     // Pagination is opt-in as in the Go SDK, the user must be aware of this
     const std::string baseUrl = buildURL(bucket);
@@ -24,8 +24,8 @@ std::expected<ListBucketResult, Error> S3Client::ListObjects(const std::string& 
     return deserializeListBucketResult(XMLBody, maxKeys);
 }
 
-std::expected<ListBucketResult, Error> S3Client::deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
-    ListBucketResult response;
+std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
+    ListObjectsResult response;
     response.Contents.reserve(maxKeys);
     response.CommonPrefixes.reserve(maxKeys);
 
@@ -105,8 +105,8 @@ std::expected<ListBucketResult, Error> S3Client::deserializeListBucketResult(con
             response.Contents[contentsIdx].StorageClass = std::move(node.value);
         } else {
             // Detect and parse error
-				// Note(cristian): This fallback should not be needed as we have
-				// the HTTP status codes for this, however, I like it
+            // Note(cristian): This fallback should not be needed as we have
+            // the HTTP status codes for this, however, I like it
             if (node.tag.substr(0, 6) == "Error.") {
                 return std::unexpected<Error>(deserializeError(nodes));
             }
@@ -132,6 +132,22 @@ std::expected<ListBucketResult, Error> S3Client::deserializeListBucketResult(con
     return response;
 }
 
+std::expected<std::string, Error> S3Client::GetObject(const std::string& bucket, const std::string& key) {
+    std::string url = buildURL(bucket) + std::format("/{}", key);
+
+    HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
+    Signer.sign(req);
+    HttpResponse res = req.execute();
+
+    const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
+
+    if (res.status() != 200) {
+        return std::unexpected<Error>(deserializeError(XMLBody));
+    }
+
+    return res.body();
+}
+
 Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
     Error error;
 
@@ -147,7 +163,7 @@ Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
         } else if (node.tag == "Error.RequestId") {
             error.RequestId = Parser.parseNumber<int>(std::move(node.value));
         } else {
-				continue;
+            continue;
         }
     }
 

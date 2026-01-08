@@ -7,7 +7,7 @@ int main() {
     int totalObjects = 0;
 
     while (paginator.HasMorePages()) {
-        std::expected<ListBucketResult, Error> page = paginator.NextPage();
+        std::expected<ListObjectsResult, Error> page = paginator.NextPage();
 
 				if (!page) {
             std::println("Error: {}", page.error().Message);

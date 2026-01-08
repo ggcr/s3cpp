@@ -3,7 +3,7 @@
 #include <s3cpp/auth.h>
 #include <s3cpp/xml.hpp>
 
-// ListBucketResult
+// ListObjects
 // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
 
 struct Contents_ {
@@ -28,7 +28,23 @@ struct CommonPrefix {
     std::string Prefix;
 };
 
-struct ListBucketResult {
+struct GetObjectInput {
+	std::optional<std::string> If_Match;
+	std::optional<std::string> If_Modified_Since;
+	std::optional<std::string> If_None_Match;
+	std::optional<std::string> If_Unmodified_Since;
+	std::optional<int> partNumber;
+	std::optional<std::string> Range; // e.g. bytes=0-9
+	std::optional<std::string> response_cache_control;
+	std::optional<std::string> response_content_disposition;
+	std::optional<std::string> response_content_encoding;
+	std::optional<std::string> response_content_language;
+	std::optional<std::string> response_content_type;
+	std::optional<std::string> response_expires;
+	std::optional<std::string> versionId;
+};
+
+struct ListObjectsResult {
     bool IsTruncated;
     std::string Marker;
     std::string NextMarker;
@@ -47,7 +63,6 @@ struct ListBucketResult {
 
 // REST generic error
 // https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#RESTErrorResponses
-// TODO(cristian): Should we add the 3xx, 4xx, or 5xx HTTP status code
 struct Error {
     std::string Code;
     std::string Message;
@@ -87,29 +102,31 @@ public:
         , addressing_style_(style) {
     }
 
-    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key) {
-        std::string url = buildURL(bucket) + std::format("/{}", key);
+	 // S3 operations
+	 // TODO(cristian): ListObjectsV2 missing URI params:
+	 // - Bucket 
+	 // - Continuation token
+	 // - Delimiter
+	 // - EncodingType
+	 // - ExpectedBucketOwner
+	 // - FetchOwner
+	 // - MaxKeys
+	 // - OptionalObjectAttributes
+	 // - Prefix
+	 // - RequestPayer
+	 // - StartAfter
+    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
+    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
+    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
+    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
 
-        HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
-        Signer.sign(req);
-        HttpResponse res = req.execute();
+    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key);
+    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& opt);
+	 // TODO(cristian): Add all overloading needed for different params
+    // TODO(cristian): HeadBucket and HeadObject, PutObject, CreateBucket
 
-        const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
-
-        if (res.status() != 200) {
-            return std::unexpected<Error>(deserializeError(XMLBody));
-        }
-
-        return res.body();
-    }
-    // TODO(cristian): HeadBucket and HeadObject
-
-    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
-    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
-    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
-    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
-
-    std::expected<ListBucketResult, Error> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
+	 // S3 responses
+    std::expected<ListObjectsResult, Error> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
     Error deserializeError(const std::vector<XMLNode>& nodes);
 
 private:
@@ -153,7 +170,7 @@ public:
 
     bool HasMorePages() const { return hasMorePages_; }
 
-    std::expected<ListBucketResult, Error> NextPage() {
+    std::expected<ListObjectsResult, Error> NextPage() {
         auto response = client_.ListObjects(bucket_, prefix_, maxKeys_, continuationToken_);
         if (response.has_value()) {
             hasMorePages_ = response.value().IsTruncated;

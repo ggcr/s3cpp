@@ -6,7 +6,7 @@ TEST(S3, ListObjectsBucket) {
     try {
         // Assuming the bucket has the 10K objects
         // Once we implement PutObject we will do this ourselves with s3cpp
-        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket");
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket");
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 0);
@@ -22,7 +22,7 @@ TEST(S3, ListObjectsBucket) {
 TEST(S3, ListObjectsBucketNotExists) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListBucketResult, Error> res = client.ListObjects("Does-not-exist");
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("Does-not-exist");
         if (res.has_value()) // We must return error
             GTEST_FAIL();
 				Error error = res.error();
@@ -40,7 +40,7 @@ TEST(S3, ListObjectsFilePrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // path/to/file_1.txt must exist
-        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/file_1.txt");
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/file_1.txt");
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1);
@@ -57,7 +57,7 @@ TEST(S3, ListObjectsDirPrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // Get 100 keys
-        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/", 100);
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/", 100);
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 100);
@@ -73,7 +73,7 @@ TEST(S3, ListObjectsDirPrefix) {
 TEST(S3, ListObjectsDirPrefixMaxKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/", 1);
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/", 1);
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1);
@@ -89,7 +89,7 @@ TEST(S3, ListObjectsDirPrefixMaxKeys) {
 TEST(S3, ListObjectsCheckFields) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/", 2);
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/", 2);
         if (!res)
             GTEST_FAIL();
 
@@ -123,7 +123,7 @@ TEST(S3, ListObjectsCheckLenKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // has 10K objects - limit is 1000 keys
-        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/");
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/");
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1000);
@@ -146,7 +146,7 @@ TEST(S3, ListObjectsPaginator) {
         int pageCount = 0;
 
         while (paginator.HasMorePages()) {
-            std::expected<ListBucketResult, Error> page = paginator.NextPage();
+            std::expected<ListObjectsResult, Error> page = paginator.NextPage();
             if (!page) {
                 GTEST_FAIL();
             }
