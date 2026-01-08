@@ -1,10 +1,7 @@
-#include <charconv>
 #include <expected>
 #include <print>
 #include <s3cpp/auth.h>
 #include <s3cpp/xml.hpp>
-#include <stdexcept>
-#include <unordered_set>
 
 // ListBucketResult
 // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
@@ -48,13 +45,14 @@ struct ListBucketResult {
     std::string StartAfter;
 };
 
-struct ErrorNoSuchBucket {
+// REST generic error
+// https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#RESTErrorResponses
+// TODO(cristian): Should we add the 3xx, 4xx, or 5xx HTTP status code
+struct Error {
     std::string Code;
     std::string Message;
-    std::string BucketName;
     std::string Resource;
     int RequestId;
-    std::string HostId;
 };
 
 enum class S3AddressingStyle {
@@ -89,26 +87,30 @@ public:
         , addressing_style_(style) {
     }
 
-    // TODO(cristian): Implement deserialization
-    // TODO(cristian): Wrap onto std::expected
-    std::expected<ListBucketResult, ErrorNoSuchBucket> GetObject(const std::string& bucket, const std::string& key) {
+    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key) {
         std::string url = buildURL(bucket) + std::format("/{}", key);
+
         HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
         Signer.sign(req);
         HttpResponse res = req.execute();
-        std::println("{}", res.body());
-        std::expected<ListBucketResult, ErrorNoSuchBucket> response = deserializeListBucketResult(Parser.parse(res.body()), 1000);
-        return response;
+
+        const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
+
+        if (res.status() != 200) {
+            return std::unexpected<Error>(deserializeError(XMLBody));
+        }
+
+        return res.body();
     }
     // TODO(cristian): HeadBucket and HeadObject
 
-    std::expected<ListBucketResult, ErrorNoSuchBucket> ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
-    std::expected<ListBucketResult, ErrorNoSuchBucket> ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
-    std::expected<ListBucketResult, ErrorNoSuchBucket> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
-    std::expected<ListBucketResult, ErrorNoSuchBucket> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
+    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
+    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
+    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
+    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
 
-    std::expected<ListBucketResult, ErrorNoSuchBucket> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
-    ErrorNoSuchBucket deserializeError(const std::vector<XMLNode>& nodes);
+    std::expected<ListBucketResult, Error> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
+    Error deserializeError(const std::vector<XMLNode>& nodes);
 
 private:
     HttpClient Client;
@@ -151,7 +153,7 @@ public:
 
     bool HasMorePages() const { return hasMorePages_; }
 
-    std::expected<ListBucketResult, ErrorNoSuchBucket> NextPage() {
+    std::expected<ListBucketResult, Error> NextPage() {
         auto response = client_.ListObjects(bucket_, prefix_, maxKeys_, continuationToken_);
         if (response.has_value()) {
             hasMorePages_ = response.value().IsTruncated;
