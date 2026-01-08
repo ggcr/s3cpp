@@ -6,7 +6,7 @@ TEST(S3, ListObjectsBucket) {
     try {
         // Assuming the bucket has the 10K objects
         // Once we implement PutObject we will do this ourselves with s3cpp
-        std::expected<ListBucketResult, ErrorNoSuchBucket> res = client.ListObjects("my-bucket");
+        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket");
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 0);
@@ -22,10 +22,10 @@ TEST(S3, ListObjectsBucket) {
 TEST(S3, ListObjectsBucketNotExists) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListBucketResult, ErrorNoSuchBucket> res = client.ListObjects("Does-not-exist");
+        std::expected<ListBucketResult, Error> res = client.ListObjects("Does-not-exist");
         if (res.has_value()) // We must return error
             GTEST_FAIL();
-				ErrorNoSuchBucket error = res.error();
+				Error error = res.error();
         // EXPECT_EQ(error.Code, "InvalidBucketName");
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
@@ -40,7 +40,7 @@ TEST(S3, ListObjectsFilePrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // path/to/file_1.txt must exist
-        std::expected<ListBucketResult, ErrorNoSuchBucket> res = client.ListObjects("my-bucket", "path/to/file_1.txt");
+        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/file_1.txt");
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1);
@@ -57,7 +57,7 @@ TEST(S3, ListObjectsDirPrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // Get 100 keys
-        std::expected<ListBucketResult, ErrorNoSuchBucket> res = client.ListObjects("my-bucket", "path/to/", 100);
+        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/", 100);
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 100);
@@ -73,7 +73,7 @@ TEST(S3, ListObjectsDirPrefix) {
 TEST(S3, ListObjectsDirPrefixMaxKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListBucketResult, ErrorNoSuchBucket> res = client.ListObjects("my-bucket", "path/to/", 1);
+        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/", 1);
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1);
@@ -89,7 +89,7 @@ TEST(S3, ListObjectsDirPrefixMaxKeys) {
 TEST(S3, ListObjectsCheckFields) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListBucketResult, ErrorNoSuchBucket> res = client.ListObjects("my-bucket", "path/to/", 2);
+        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/", 2);
         if (!res)
             GTEST_FAIL();
 
@@ -123,7 +123,7 @@ TEST(S3, ListObjectsCheckLenKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // has 10K objects - limit is 1000 keys
-        std::expected<ListBucketResult, ErrorNoSuchBucket> res = client.ListObjects("my-bucket", "path/to/");
+        std::expected<ListBucketResult, Error> res = client.ListObjects("my-bucket", "path/to/");
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1000);
@@ -146,7 +146,7 @@ TEST(S3, ListObjectsPaginator) {
         int pageCount = 0;
 
         while (paginator.HasMorePages()) {
-            std::expected<ListBucketResult, ErrorNoSuchBucket> page = paginator.NextPage();
+            std::expected<ListBucketResult, Error> page = paginator.NextPage();
             if (!page) {
                 GTEST_FAIL();
             }
@@ -178,6 +178,40 @@ TEST(S3, GetObjectExists) {
         if (!response) {
             GTEST_FAIL();
         }
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
+            GTEST_SKIP_("Skipping GetObjectExists: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, GetObjectNotExists) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        auto response = client.GetObject("my-bucket", "does/not/exists.txt");
+        if (response) { // should trigger error
+            GTEST_FAIL();
+        }
+		  EXPECT_EQ(response.error().Code, "NoSuchKey");
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
+            GTEST_SKIP_("Skipping GetObjectNotExists: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, GetObjectBadBucket) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        auto response = client.GetObject("does-not-exist", "path/to/file_1.txt");
+        if (response) { // should trigger error
+            GTEST_FAIL();
+        }
+		  EXPECT_EQ(response.error().Code, "NoSuchBucket");
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
         if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
