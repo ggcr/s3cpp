@@ -14,16 +14,16 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 # cURL
-find_package(CURL)
+find_package(CURL REQUIRED)
 
 # OpenSSL (SHA256)
 find_package(OpenSSL REQUIRED)
 
-# Create lib and app
 add_library(s3cpplib
 	src/s3cpp/httpclient.cpp
 	src/s3cpp/auth.cpp
 	src/s3cpp/xml.hpp
+	src/s3cpp/types.h
 	src/s3cpp/s3.cpp
 )
 target_include_directories(s3cpplib PUBLIC src)
@@ -31,7 +31,7 @@ target_link_libraries(s3cpplib PUBLIC CURL::libcurl OpenSSL::Crypto)
 add_executable(s3cpp_app main.cpp)
 target_link_libraries(s3cpp_app s3cpplib)
 
-# Tests
+# Testing
 enable_testing()
 add_executable(tests 
 	test/httpclient_test.cpp
