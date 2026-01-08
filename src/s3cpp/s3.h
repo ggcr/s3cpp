@@ -51,6 +51,7 @@ struct ListBucketResult {
 struct Error {
     std::string Code;
     std::string Message;
+    std::string BucketName;
     std::string Resource;
     int RequestId;
     std::string HostId;

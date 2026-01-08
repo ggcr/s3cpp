@@ -102,7 +102,7 @@ std::expected<ListBucketResult, Error> S3Client::deserializeListBucketResult(con
             response.Contents[contentsIdx].StorageClass = std::move(node.value);
         } else {
             // Detect and parse error
-            if (node.tag == "Error.Code") {
+            if (node.tag.substr(0, 6) == "Error.") {
                 return std::unexpected<Error>(deserializeError(nodes));
             }
             throw std::runtime_error(std::format("No case for ListBucketResult response found for: {}", node.tag));
@@ -139,6 +139,10 @@ Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
             error.Message = std::move(node.value);
         } else if (node.tag == "Error.Resource") {
             error.Resource = std::move(node.value);
+        } else if (node.tag == "Error.BucketName") {
+            error.BucketName = std::move(node.value);
+        } else if (node.tag == "Error.Key") {
+            error.Key = std::move(node.value);
         } else if (node.tag == "Error.RequestId") {
             error.RequestId = Parser.parseNumber<int>(std::move(node.value));
         } else if (node.tag == "Error.HostId") {
