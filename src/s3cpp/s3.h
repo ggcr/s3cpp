@@ -48,7 +48,7 @@ struct ListBucketResult {
     std::string StartAfter;
 };
 
-struct Error {
+struct ErrorNoSuchBucket {
     std::string Code;
     std::string Message;
     std::string BucketName;
@@ -91,24 +91,24 @@ public:
 
     // TODO(cristian): Implement deserialization
     // TODO(cristian): Wrap onto std::expected
-    std::expected<ListBucketResult, Error> GetObject(const std::string& bucket, const std::string& key) {
+    std::expected<ListBucketResult, ErrorNoSuchBucket> GetObject(const std::string& bucket, const std::string& key) {
         std::string url = buildURL(bucket) + std::format("/{}", key);
         HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
         Signer.sign(req);
         HttpResponse res = req.execute();
         std::println("{}", res.body());
-        std::expected<ListBucketResult, Error> response = deserializeListBucketResult(Parser.parse(res.body()), 1000);
+        std::expected<ListBucketResult, ErrorNoSuchBucket> response = deserializeListBucketResult(Parser.parse(res.body()), 1000);
         return response;
     }
     // TODO(cristian): HeadBucket and HeadObject
 
-    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
-    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
-    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
-    std::expected<ListBucketResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
+    std::expected<ListBucketResult, ErrorNoSuchBucket> ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
+    std::expected<ListBucketResult, ErrorNoSuchBucket> ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
+    std::expected<ListBucketResult, ErrorNoSuchBucket> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
+    std::expected<ListBucketResult, ErrorNoSuchBucket> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
 
-    std::expected<ListBucketResult, Error> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
-    Error deserializeError(const std::vector<XMLNode>& nodes);
+    std::expected<ListBucketResult, ErrorNoSuchBucket> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
+    ErrorNoSuchBucket deserializeError(const std::vector<XMLNode>& nodes);
 
 private:
     HttpClient Client;
@@ -151,7 +151,7 @@ public:
 
     bool HasMorePages() const { return hasMorePages_; }
 
-    std::expected<ListBucketResult, Error> NextPage() {
+    std::expected<ListBucketResult, ErrorNoSuchBucket> NextPage() {
         auto response = client_.ListObjects(bucket_, prefix_, maxKeys_, continuationToken_);
         if (response.has_value()) {
             hasMorePages_ = response.value().IsTruncated;

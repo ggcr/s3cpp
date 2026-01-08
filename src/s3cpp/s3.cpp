@@ -1,7 +1,7 @@
 #include <expected>
 #include <s3cpp/s3.h>
 
-std::expected<ListBucketResult, Error> S3Client::ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken) {
+std::expected<ListBucketResult, ErrorNoSuchBucket> S3Client::ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken) {
     // Silent-ly accept maxKeys > 1000, even though we will return 1K at most
     // Pagination is opt-in as in the Go SDK, the user must be aware of this
     const std::string baseUrl = buildURL(bucket);
@@ -17,11 +17,11 @@ std::expected<ListBucketResult, Error> S3Client::ListObjects(const std::string& 
     HttpResponse res = req.execute();
 
     const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
-    std::expected<ListBucketResult, Error> response = deserializeListBucketResult(XMLBody, maxKeys);
+    std::expected<ListBucketResult, ErrorNoSuchBucket> response = deserializeListBucketResult(XMLBody, maxKeys);
     return response;
 }
 
-std::expected<ListBucketResult, Error> S3Client::deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
+std::expected<ListBucketResult, ErrorNoSuchBucket> S3Client::deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
     ListBucketResult response;
     response.Contents.reserve(maxKeys);
     response.CommonPrefixes.reserve(maxKeys);
@@ -103,7 +103,7 @@ std::expected<ListBucketResult, Error> S3Client::deserializeListBucketResult(con
         } else {
             // Detect and parse error
             if (node.tag.substr(0, 6) == "Error.") {
-                return std::unexpected<Error>(deserializeError(nodes));
+                return std::unexpected<ErrorNoSuchBucket>(deserializeError(nodes));
             }
             throw std::runtime_error(std::format("No case for ListBucketResult response found for: {}", node.tag));
         }
@@ -127,8 +127,8 @@ std::expected<ListBucketResult, Error> S3Client::deserializeListBucketResult(con
     return response;
 }
 
-Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
-    Error error;
+ErrorNoSuchBucket S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
+    ErrorNoSuchBucket error;
 
     for (const auto& node : nodes) {
         /* Sigh... no reflection */
@@ -141,8 +141,6 @@ Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
             error.Resource = std::move(node.value);
         } else if (node.tag == "Error.BucketName") {
             error.BucketName = std::move(node.value);
-        } else if (node.tag == "Error.Key") {
-            error.Key = std::move(node.value);
         } else if (node.tag == "Error.RequestId") {
             error.RequestId = Parser.parseNumber<int>(std::move(node.value));
         } else if (node.tag == "Error.HostId") {
