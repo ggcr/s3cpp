@@ -1,79 +1,7 @@
 #include <expected>
-#include <print>
 #include <s3cpp/auth.h>
+#include <s3cpp/types.h>
 #include <s3cpp/xml.hpp>
-
-// ListObjects
-// https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
-
-struct Contents_ {
-    std::string ChecksumAlgorithm;
-    std::string ChecksumType;
-    std::string ETag;
-    std::string Key;
-    std::string LastModified;
-    struct Owner_ {
-        std::string DisplayName;
-        std::string ID;
-    } Owner;
-    struct RestoreStatus_ {
-        bool IsRestoreInProgress;
-        std::string RestoreExpiryDate;
-    } RestoreStatus;
-    int64_t Size;
-    std::string StorageClass;
-};
-
-struct CommonPrefix {
-    std::string Prefix;
-};
-
-struct GetObjectInput {
-	std::optional<std::string> If_Match;
-	std::optional<std::string> If_Modified_Since;
-	std::optional<std::string> If_None_Match;
-	std::optional<std::string> If_Unmodified_Since;
-	std::optional<int> partNumber;
-	std::optional<std::string> Range; // e.g. bytes=0-9
-	std::optional<std::string> response_cache_control;
-	std::optional<std::string> response_content_disposition;
-	std::optional<std::string> response_content_encoding;
-	std::optional<std::string> response_content_language;
-	std::optional<std::string> response_content_type;
-	std::optional<std::string> response_expires;
-	std::optional<std::string> versionId;
-};
-
-struct ListObjectsResult {
-    bool IsTruncated;
-    std::string Marker;
-    std::string NextMarker;
-    std::vector<Contents_> Contents;
-    std::string Name;
-    std::string Prefix;
-    std::string Delimiter;
-    int MaxKeys;
-    std::vector<CommonPrefix> CommonPrefixes;
-    std::string EncodingType;
-    int KeyCount;
-    std::string ContinuationToken;
-    std::string NextContinuationToken;
-    std::string StartAfter;
-};
-
-// REST generic error
-// https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#RESTErrorResponses
-struct Error {
-    std::string Code;
-    std::string Message;
-    std::string Resource;
-    int RequestId;
-};
-
-enum class S3AddressingStyle {
-    VirtualHosted,
-    PathStyle
-};
 
 class S3Client {
 public:
@@ -103,26 +31,9 @@ public:
     }
 
 	 // S3 operations
-	 // TODO(cristian): ListObjectsV2 missing URI params:
-	 // - Bucket 
-	 // - Continuation token
-	 // - Delimiter
-	 // - EncodingType
-	 // - ExpectedBucketOwner
-	 // - FetchOwner
-	 // - MaxKeys
-	 // - OptionalObjectAttributes
-	 // - Prefix
-	 // - RequestPayer
-	 // - StartAfter
-    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket) { return ListObjects(bucket, "/", 1000, ""); }
-    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const std::string& prefix) { return ListObjects(bucket, prefix, 1000, ""); }
-    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys) { return ListObjects(bucket, prefix, maxKeys, ""); }
-    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken);
+    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const ListObjectsInput& options = {});
 
-    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key);
-    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& opt);
-	 // TODO(cristian): Add all overloading needed for different params
+    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options = {});
     // TODO(cristian): HeadBucket and HeadObject, PutObject, CreateBucket
 
 	 // S3 responses
@@ -171,7 +82,14 @@ public:
     bool HasMorePages() const { return hasMorePages_; }
 
     std::expected<ListObjectsResult, Error> NextPage() {
-        auto response = client_.ListObjects(bucket_, prefix_, maxKeys_, continuationToken_);
+        ListObjectsInput options;
+        if (!continuationToken_.empty()) 
+            options.ContinuationToken = continuationToken_;
+        if (!prefix_.empty()) 
+            options.Prefix = prefix_;
+        options.MaxKeys = maxKeys_;
+
+        auto response = client_.ListObjects(bucket_, options);
         if (response.has_value()) {
             hasMorePages_ = response.value().IsTruncated;
             continuationToken_ = response.value().NextContinuationToken;

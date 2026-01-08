@@ -9,7 +9,7 @@ TEST(S3, ListObjectsBucket) {
         std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket");
         if (!res)
             GTEST_FAIL();
-        EXPECT_EQ(res->Contents.size(), 0);
+        EXPECT_EQ(res->Contents.size(), 1000);
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
         if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
@@ -25,7 +25,7 @@ TEST(S3, ListObjectsBucketNotExists) {
         std::expected<ListObjectsResult, Error> res = client.ListObjects("Does-not-exist");
         if (res.has_value()) // We must return error
             GTEST_FAIL();
-				Error error = res.error();
+        Error error = res.error();
         // EXPECT_EQ(error.Code, "InvalidBucketName");
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
@@ -40,7 +40,7 @@ TEST(S3, ListObjectsFilePrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // path/to/file_1.txt must exist
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/file_1.txt");
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/file_1.txt" });
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1);
@@ -57,7 +57,7 @@ TEST(S3, ListObjectsDirPrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // Get 100 keys
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/", 100);
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 100 });
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 100);
@@ -73,7 +73,7 @@ TEST(S3, ListObjectsDirPrefix) {
 TEST(S3, ListObjectsDirPrefixMaxKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/", 1);
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 1 });
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1);
@@ -89,7 +89,7 @@ TEST(S3, ListObjectsDirPrefixMaxKeys) {
 TEST(S3, ListObjectsCheckFields) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/", 2);
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 2 });
         if (!res)
             GTEST_FAIL();
 
@@ -123,7 +123,7 @@ TEST(S3, ListObjectsCheckLenKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // has 10K objects - limit is 1000 keys
-        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", "path/to/");
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/" });
         if (!res)
             GTEST_FAIL();
         EXPECT_EQ(res->Contents.size(), 1000);
@@ -194,7 +194,7 @@ TEST(S3, GetObjectNotExists) {
         if (response) { // should trigger error
             GTEST_FAIL();
         }
-		  EXPECT_EQ(response.error().Code, "NoSuchKey");
+        EXPECT_EQ(response.error().Code, "NoSuchKey");
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
         if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
@@ -211,11 +211,97 @@ TEST(S3, GetObjectBadBucket) {
         if (response) { // should trigger error
             GTEST_FAIL();
         }
-		  EXPECT_EQ(response.error().Code, "NoSuchBucket");
+        EXPECT_EQ(response.error().Code, "NoSuchBucket");
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
         if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
-            GTEST_SKIP_("Skipping GetObjectExists: Server not up");
+            GTEST_SKIP_("Skipping GetObjectBadBucket: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, ListObjectsWithDelimiter) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Delimiter = "/", .Prefix = "path/" });
+        if (!res) {
+            GTEST_FAIL();
+        }
+
+        // With delimiter, we should get CommonPrefixes for subdirectories
+        EXPECT_FALSE(res->CommonPrefixes.empty());
+        EXPECT_EQ(res->Delimiter, "/");
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
+            GTEST_SKIP_("Skipping ListObjectsWithDelimiter: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, ListObjectsWithStartAfter) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 10, .StartAfter = "path/to/file_50.txt" });
+        if (!res) {
+            GTEST_FAIL();
+        }
+
+        // First key should be file_50.txt
+        EXPECT_FALSE(res->Contents.empty());
+        EXPECT_GT(res->Contents[0].Key, "path/to/file_50.txt");
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
+            GTEST_SKIP_("Skipping ListObjectsWithStartAfter: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, ListObjectsWithContinuationToken) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        std::expected<ListObjectsResult, Error> firstPage = client.ListObjects("my-bucket", { .Prefix = "path/to/", .MaxKeys = 10 });
+        if (!firstPage) {
+            GTEST_FAIL();
+        }
+
+        EXPECT_TRUE(firstPage->IsTruncated);
+        EXPECT_FALSE(firstPage->NextContinuationToken.empty());
+
+        // using continuation token
+        std::expected<ListObjectsResult, Error> secondPage = client.ListObjects("my-bucket", { .ContinuationToken = firstPage->NextContinuationToken, .Prefix = "path/to/", .MaxKeys = 10 });
+        if (!secondPage)
+            GTEST_FAIL();
+
+        EXPECT_FALSE(secondPage->Contents.empty());
+        EXPECT_NE(firstPage->Contents[0].Key, secondPage->Contents[0].Key);
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
+            GTEST_SKIP_("Skipping ListObjectsWithContinuationToken: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, GetObjectWithRange) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        // first 10 bytes
+        auto response = client.GetObject("my-bucket", "path/to/file_1.txt", { .Range = "bytes=0-3" });
+        if (!response) {
+            GTEST_FAIL();
+        }
+
+        EXPECT_EQ(response.value().size(), 4);
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
+            GTEST_SKIP_("Skipping GetObjectWithRange: Server not up");
         }
         throw;
     }

@@ -1,27 +1,48 @@
 #include <expected>
 #include <s3cpp/s3.h>
 
-std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string& bucket, const std::string& prefix, int maxKeys, const std::string& continuationToken) {
+std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string& bucket, const ListObjectsInput& options) {
     // Silent-ly accept maxKeys > 1000, even though we will return 1K at most
     // Pagination is opt-in as in the Go SDK, the user must be aware of this
-    const std::string baseUrl = buildURL(bucket);
-    std::string url;
-    if (continuationToken.size() > 0) {
-        url = baseUrl + std::format("?list-type=2&prefix={}&max-keys={}&continuation-token={}", prefix, maxKeys, continuationToken);
-    } else {
-        url = baseUrl + std::format("?list-type=2&prefix={}&max-keys={}", prefix, maxKeys);
-    }
+
+    // Build URL with query parameters
+    std::string url = std::format("{}?list-type=2", buildURL(bucket));
+
+    if (options.Prefix.has_value())
+        url += std::format("&prefix={}", options.Prefix.value());
+
+    int maxKeys = options.MaxKeys.value_or(1000);
+    url += std::format("&max-keys={}", maxKeys);
+
+    if (options.ContinuationToken.has_value())
+        url += std::format("&continuation-token={}", options.ContinuationToken.value());
+    if (options.Delimiter.has_value())
+        url += std::format("&delimiter={}", options.Delimiter.value());
+    if (options.EncodingType.has_value())
+        url += std::format("&encoding-type={}", options.EncodingType.value());
+    if (options.StartAfter.has_value())
+        url += std::format("&start-after={}", options.StartAfter.value());
+    if (options.FetchOwner.has_value() && options.FetchOwner.value())
+        url += "&fetch-owner=true";
 
     HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
+
+    // opt headers
+    if (options.ExpectedBucketOwner.has_value())
+        req.header("x-amz-expected-bucket-owner", options.ExpectedBucketOwner.value());
+
+    if (options.RequestPayer.has_value())
+        req.header("x-amz-request-payer", options.RequestPayer.value());
+
     Signer.sign(req);
     HttpResponse res = req.execute();
 
     const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
 
-    if (res.status() != 200) {
-        return std::unexpected<Error>(deserializeError(XMLBody));
+    if (res.status() >= 200 && res.status() < 300) {
+        return deserializeListBucketResult(XMLBody, maxKeys);
     }
-    return deserializeListBucketResult(XMLBody, maxKeys);
+    return std::unexpected<Error>(deserializeError(XMLBody));
 }
 
 std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
@@ -103,6 +124,8 @@ std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(co
             response.Contents[contentsIdx].Size = Parser.parseNumber<long>(node.value);
         } else if (node.tag == "ListBucketResult.Contents.StorageClass") {
             response.Contents[contentsIdx].StorageClass = std::move(node.value);
+        } else if (node.tag == "ListBucketResult.CommonPrefixes.Prefix") {
+            response.CommonPrefixes[commonPrefixesIdx].Prefix = std::move(node.value);
         } else {
             // Detect and parse error
             // Note(cristian): This fallback should not be needed as we have
@@ -132,20 +155,32 @@ std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(co
     return response;
 }
 
-std::expected<std::string, Error> S3Client::GetObject(const std::string& bucket, const std::string& key) {
+std::expected<std::string, Error> S3Client::GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options) {
     std::string url = buildURL(bucket) + std::format("/{}", key);
 
     HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
+
+    // opt headers
+    if (options.Range.has_value())
+        req.header("Range", options.Range.value());
+    if (options.If_Match.has_value())
+        req.header("If-Match", options.If_Match.value());
+    if (options.If_None_Match.has_value())
+        req.header("If-None-Match", options.If_None_Match.value());
+    if (options.If_Modified_Since.has_value())
+        req.header("If-Modified-Since", options.If_Modified_Since.value());
+    if (options.If_Unmodified_Since.has_value())
+        req.header("If-Unmodified-Since", options.If_Unmodified_Since.value());
+
     Signer.sign(req);
     HttpResponse res = req.execute();
 
     const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
 
-    if (res.status() != 200) {
-        return std::unexpected<Error>(deserializeError(XMLBody));
+    if (res.status() >= 200 && res.status() < 300) {
+        return res.body();
     }
-
-    return res.body();
+    return std::unexpected<Error>(deserializeError(XMLBody));
 }
 
 Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
