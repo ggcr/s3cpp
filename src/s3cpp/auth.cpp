@@ -1,14 +1,19 @@
 #include "s3cpp/auth.h"
+#include "s3cpp/httpclient.h"
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <format>
 #include <iomanip>
 #include <map>
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
+#include <print>
 #include <sstream>
+#include <type_traits>
 
-void AWSSigV4Signer::sign(HttpRequest& request) {
+template <typename T>
+void AWSSigV4Signer::sign(HttpRequestBase<T>& request) {
     // Autorization
     const std::string hash_algo = "AWS4-HMAC-SHA256";
 
@@ -44,7 +49,8 @@ void AWSSigV4Signer::sign(HttpRequest& request) {
     request.header("Authorization", std::format("{} Credential={}/{}, SignedHeaders={}, Signature={}", hash_algo, access_key, credential_scope, signed_headers, signature));
 }
 
-std::string AWSSigV4Signer::createCannonicalRequest(HttpRequest& request) {
+template <typename T>
+std::string AWSSigV4Signer::createCannonicalRequest(HttpRequestBase<T>& request) {
     const std::string http_verb = request.getHttpMethodStr(request.getHttpMethod());
     std::string url = request.getURL();
 
@@ -102,26 +108,36 @@ std::string AWSSigV4Signer::createCannonicalRequest(HttpRequest& request) {
         i++;
     }
 
-    // Hashed payload (assume empty for now)
-    const std::string empty_payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    std::string payload_hash;
+    if constexpr (std::is_same_v<T, HttpBodyRequest>) {
+        const std::string& body = static_cast<HttpBodyRequest&>(request).getBody();
+        payload_hash = hex(sha256(body));
+    } else {
+        payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    }
+
+    // The x-amz-content-sha256 header is required for Amazon S3 AWS requests. It provides a hash of the request payload. If there is no payload, you must provide the hash of an empty string.
+    request.header("x-amz-content-sha256", payload_hash);
 
     return std::format("{}\n{}\n{}\n{}\n{}\n{}", http_verb, cannonical_uri, query_str,
-        cheaders, signed_headers, empty_payload_hash);
+        cheaders, signed_headers, payload_hash);
 }
 
 const unsigned char* AWSSigV4Signer::sha256(const std::string& str) {
-    // Returns the SHA256 digest in Hex
+    static unsigned char digest[SHA256_DIGEST_LENGTH];
     const auto in_str = reinterpret_cast<const unsigned char*>(str.c_str());
-    const unsigned char* digest = SHA256(in_str, str.size(), NULL);
+    SHA256(in_str, str.size(), digest);
     return digest;
 }
 
 const unsigned char* AWSSigV4Signer::HMAC_SHA256(const unsigned char* key,
     size_t key_len,
     const std::string& data) {
-    return HMAC(EVP_sha256(), key, key_len,
+    static unsigned char digest[SHA256_DIGEST_LENGTH];
+    HMAC(EVP_sha256(), key, key_len,
         reinterpret_cast<const unsigned char*>(data.c_str()),
-        data.size(), NULL, NULL);
+        data.size(), digest, NULL);
+    return digest;
 }
 
 std::string AWSSigV4Signer::hex(const unsigned char* hash) {
@@ -159,9 +175,24 @@ std::string AWSSigV4Signer::getTimestamp() {
 const unsigned char* AWSSigV4Signer::deriveSigningKey(const std::string request_date) {
     const std::string initial_candidate = "AWS4" + secret_key;
     const unsigned char* keyCandidate = reinterpret_cast<const unsigned char*>(initial_candidate.c_str());
-    const unsigned char* DateKey = HMAC_SHA256(keyCandidate, initial_candidate.size(), request_date);
-    const unsigned char* DateRegionKey = HMAC_SHA256(DateKey, SHA256_DIGEST_LENGTH, aws_region);
-    const unsigned char* DateRegionServiceKey = HMAC_SHA256(DateRegionKey, SHA256_DIGEST_LENGTH, "s3");
-    const unsigned char* SigningKey = HMAC_SHA256(DateRegionServiceKey, SHA256_DIGEST_LENGTH, "aws4_request");
-    return SigningKey;
+
+    unsigned char DateKey[SHA256_DIGEST_LENGTH];
+    const unsigned char* temp = HMAC_SHA256(keyCandidate, initial_candidate.size(), request_date);
+    std::memcpy(DateKey, temp, SHA256_DIGEST_LENGTH);
+
+    unsigned char DateRegionKey[SHA256_DIGEST_LENGTH];
+    temp = HMAC_SHA256(DateKey, SHA256_DIGEST_LENGTH, aws_region);
+    std::memcpy(DateRegionKey, temp, SHA256_DIGEST_LENGTH);
+
+    unsigned char DateRegionServiceKey[SHA256_DIGEST_LENGTH];
+    temp = HMAC_SHA256(DateRegionKey, SHA256_DIGEST_LENGTH, "s3");
+    std::memcpy(DateRegionServiceKey, temp, SHA256_DIGEST_LENGTH);
+
+    return HMAC_SHA256(DateRegionServiceKey, SHA256_DIGEST_LENGTH, "aws4_request");
 }
+
+// Why are we still here? Just to suffer?
+template void AWSSigV4Signer::sign<HttpRequest>(HttpRequestBase<HttpRequest>&);
+template void AWSSigV4Signer::sign<HttpBodyRequest>(HttpRequestBase<HttpBodyRequest>&);
+template std::string AWSSigV4Signer::createCannonicalRequest<HttpRequest>(HttpRequestBase<HttpRequest>&);
+template std::string AWSSigV4Signer::createCannonicalRequest<HttpBodyRequest>(HttpRequestBase<HttpBodyRequest>&);

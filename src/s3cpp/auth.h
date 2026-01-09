@@ -16,8 +16,12 @@ public:
         , aws_region(std::move(region))
         , secret_key(std::move(secret)) { }
 
-    void sign(HttpRequest& request);
-    std::string createCannonicalRequest(HttpRequest& request);
+    template <typename T>
+    void sign(HttpRequestBase<T>& request);
+
+    template <typename T>
+    std::string createCannonicalRequest(HttpRequestBase<T>& request);
+
     const unsigned char* sha256(const std::string& str);
     const unsigned char* HMAC_SHA256(const unsigned char* key, size_t key_len, const std::string& data);
     std::string hex(const unsigned char* hash);
