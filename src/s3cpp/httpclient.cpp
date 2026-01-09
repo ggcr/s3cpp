@@ -150,9 +150,13 @@ HttpResponse HttpClient::execute_post(HttpBodyRequest& request) {
     curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, &headers_buf);
     // post/put body
-    curl_easy_setopt(curl_handle, CURLOPT_POST,
-        1L); // sets CURLOPT_NOBODY CURLOPT_HTTPGET to 0
+    if (request.getHttpMethod() == HttpMethod::Put) {
+        curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
+    } else {
+        curl_easy_setopt(curl_handle, CURLOPT_POST, 1L);
+    }
     curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, request.getBody().c_str());
+    curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, request.getBody().size());
 
     curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, request.getTimeout());
 
