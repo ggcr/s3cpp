@@ -306,3 +306,19 @@ TEST(S3, GetObjectWithRange) {
         throw;
     }
 }
+
+TEST(S3, GetObjectImage) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        auto response = client.GetObject("my-bucket", "images/image.jpg");
+        if (!response) {
+            GTEST_FAIL();
+        }
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
+            GTEST_SKIP_("Skipping GetObjectWithRange: Server not up");
+        }
+        throw;
+    }
+}

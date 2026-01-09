@@ -39,7 +39,7 @@ std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string&
 
     const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
 
-    if (res.status() >= 200 && res.status() < 300) {
+    if (res.is_ok()) {
         return deserializeListBucketResult(XMLBody, maxKeys);
     }
     return std::unexpected<Error>(deserializeError(XMLBody));
@@ -175,12 +175,27 @@ std::expected<std::string, Error> S3Client::GetObject(const std::string& bucket,
     Signer.sign(req);
     HttpResponse res = req.execute();
 
-    const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
-
-    if (res.status() >= 200 && res.status() < 300) {
+    if (res.is_ok()) {
         return res.body();
     }
-    return std::unexpected<Error>(deserializeError(XMLBody));
+    return std::unexpected<Error>(deserializeError(Parser.parse(res.body())));
+}
+
+std::expected<PutObjectResult, Error> S3Client::PutObject(const std::string& bucket, const std::string& key, const PutObjectInput& options) {
+    std::string url = buildURL(bucket) + std::format("/{}", key);
+
+    HttpBodyRequest req = Client.put(url).header("Host", getHostHeader(bucket));
+
+    // opt headers
+	 // ...
+
+    Signer.sign(req);
+    HttpResponse res = req.execute();
+
+    if (res.is_ok()) {
+        return res.body();
+    }
+    return std::unexpected<Error>(deserializeError(Parser.parse(res.body())));
 }
 
 Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {

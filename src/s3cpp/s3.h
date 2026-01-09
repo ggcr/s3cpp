@@ -32,8 +32,8 @@ public:
 
 	 // S3 operations
     std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const ListObjectsInput& options = {});
-
     std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options = {});
+    std::expected<PutObjectResult, Error> PutObject(const std::string& bucket, const std::string& key, const PutObjectInput& options = {});
     // TODO(cristian): HeadBucket and HeadObject, PutObject, CreateBucket
 
 	 // S3 responses
