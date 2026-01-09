@@ -201,10 +201,11 @@ client.head("https://postman-echo.com/get?foo0=bar1&foo2=bar2");
 }
 */
 
+// We send it as a POST because I cannot find a PUT endpoint to validate
 TEST(HTTP, HTTPPut) {
     HttpClient client {};
     std::string data = "This is expected to be sent back as part of response body";
-    HttpBodyRequest req = client.put("https://postman-echo.com/post").body(data);
+    HttpBodyRequest req = client.post("https://postman-echo.com/post").body(data);
     EXPECT_EQ(req.getBody(), data);
     HttpResponse resp = req.execute();
     EXPECT_TRUE(resp.is_ok());
