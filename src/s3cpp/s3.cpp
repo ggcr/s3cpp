@@ -189,13 +189,15 @@ std::expected<PutObjectResult, Error> S3Client::PutObject(const std::string& buc
     // opt headers
 	 // ...
 
-    Signer.sign(req);
-    HttpResponse res = req.execute();
+    // Signer.sign(req);
+    // HttpResponse res = req.execute();
+    //
+    // if (res.is_ok()) {
+    //     return res.body();
+    // }
+    // return std::unexpected<Error>(deserializeError(Parser.parse(res.body())));
 
-    if (res.is_ok()) {
-        return res.body();
-    }
-    return std::unexpected<Error>(deserializeError(Parser.parse(res.body())));
+	 return std::unexpected<Error>(deserializeError(Parser.parse("")));
 }
 
 Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {

@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <openssl/sha.h>
 #include <s3cpp/auth.h>
 #include <s3cpp/httpclient.h>
 
