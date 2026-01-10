@@ -325,7 +325,7 @@ TEST(S3, PutObjectTxt) {
         EXPECT_EQ(GetResponse.value(), "hello, from s3");
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
-        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error for request: Could not connect to server") {
             GTEST_SKIP_("Skipping GetObjectWithRange: Server not up");
         }
         throw;
