@@ -20,7 +20,7 @@ public:
     void sign(HttpRequestBase<T>& request);
 
     template <typename T>
-    std::string createCannonicalRequest(HttpRequestBase<T>& request, const std::string& payload_hash = "");
+    std::string createCannonicalRequest(HttpRequestBase<T>& request, const std::string& payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 
     const unsigned char* sha256(const std::string& str);
     const unsigned char* HMAC_SHA256(const unsigned char* key, size_t key_len, const std::string& data);
