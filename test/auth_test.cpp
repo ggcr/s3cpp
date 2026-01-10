@@ -65,7 +65,7 @@ TEST(AUTH, CannonicalGETRequest) {
                                                        "{}",
         host, empty_payload_hash, timestamp, empty_payload_hash);
 
-    EXPECT_EQ(signer.createCannonicalRequest(req), expected_canonical);
+    EXPECT_EQ(signer.createCannonicalRequest(req, empty_payload_hash), expected_canonical);
     signer.sign(req);
     EXPECT_TRUE(req.getHeaders().contains("Authorization"));
 }

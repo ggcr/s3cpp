@@ -1,4 +1,6 @@
+#include "s3cpp/httpclient.h"
 #include <expected>
+#include <print>
 #include <s3cpp/s3.h>
 
 std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string& bucket, const ListObjectsInput& options) {
@@ -46,12 +48,12 @@ std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string&
 }
 
 std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
-    ListObjectsResult response;
-    response.Contents.reserve(maxKeys);
-    response.CommonPrefixes.reserve(maxKeys);
+    ListObjectsResult result;
+    result.Contents.reserve(maxKeys);
+    result.CommonPrefixes.reserve(maxKeys);
 
-    response.Contents.push_back(Contents_ {});
-    response.CommonPrefixes.push_back(CommonPrefix {});
+    result.Contents.push_back(Contents_ {});
+    result.CommonPrefixes.push_back(CommonPrefix {});
 
     int contentsIdx = 0;
     int commonPrefixesIdx = 0;
@@ -66,66 +68,66 @@ std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(co
         // Check if we've seen this tag before in the current object
         if (node.tag.contains("ListBucketResult.Contents")) {
             if (std::find(seenContents.begin(), seenContents.end(), node.tag) != seenContents.end()) {
-                response.Contents.push_back(Contents_ {});
+                result.Contents.push_back(Contents_ {});
                 seenContents.clear();
                 contentsIdx++;
             }
         } else if (node.tag.contains("ListBucketResult.CommonPrefix")) {
             if (std::find(seenCommonPrefix.begin(), seenCommonPrefix.end(), node.tag) != seenCommonPrefix.end()) {
-                response.CommonPrefixes.push_back(CommonPrefix {});
+                result.CommonPrefixes.push_back(CommonPrefix {});
                 seenCommonPrefix.clear();
                 commonPrefixesIdx++;
             }
         }
 
         if (node.tag == "ListBucketResult.IsTruncated") {
-            response.IsTruncated = Parser.parseBool(std::move(node.value));
+            result.IsTruncated = Parser.parseBool(std::move(node.value));
         } else if (node.tag == "ListBucketResult.Marker") {
-            response.Marker = std::move(node.value);
+            result.Marker = std::move(node.value);
         } else if (node.tag == "ListBucketResult.NextMarker") {
-            response.NextMarker = std::move(node.value);
+            result.NextMarker = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Name") {
-            response.Name = std::move(node.value);
+            result.Name = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Prefix") {
-            response.Prefix = std::move(node.value);
+            result.Prefix = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Delimiter") {
-            response.Delimiter = std::move(node.value);
+            result.Delimiter = std::move(node.value);
         } else if (node.tag == "ListBucketResult.MaxKeys") {
-            response.MaxKeys = Parser.parseNumber<int>(std::move(node.value));
+            result.MaxKeys = Parser.parseNumber<int>(std::move(node.value));
         } else if (node.tag == "ListBucketResult.EncodingType") {
-            response.EncodingType = std::move(node.value);
+            result.EncodingType = std::move(node.value);
         } else if (node.tag == "ListBucketResult.KeyCount") {
-            response.KeyCount = Parser.parseNumber<int>(std::move(node.value));
+            result.KeyCount = Parser.parseNumber<int>(std::move(node.value));
         } else if (node.tag == "ListBucketResult.ContinuationToken") {
-            response.ContinuationToken = std::move(node.value);
+            result.ContinuationToken = std::move(node.value);
         } else if (node.tag == "ListBucketResult.NextContinuationToken") {
-            response.NextContinuationToken = std::move(node.value);
+            result.NextContinuationToken = std::move(node.value);
         } else if (node.tag == "ListBucketResult.StartAfter") {
-            response.StartAfter = std::move(node.value);
+            result.StartAfter = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.ChecksumAlgorithm") {
-            response.Contents[contentsIdx].ChecksumAlgorithm = std::move(node.value);
+            result.Contents[contentsIdx].ChecksumAlgorithm = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.ChecksumType") {
-            response.Contents[contentsIdx].ChecksumType = std::move(node.value);
+            result.Contents[contentsIdx].ChecksumType = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.ETag") {
-            response.Contents[contentsIdx].ETag = std::move(node.value);
+            result.Contents[contentsIdx].ETag = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.Key") {
-            response.Contents[contentsIdx].Key = std::move(node.value);
+            result.Contents[contentsIdx].Key = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.LastModified") {
-            response.Contents[contentsIdx].LastModified = std::move(node.value);
+            result.Contents[contentsIdx].LastModified = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.Owner.DisplayName") {
-            response.Contents[contentsIdx].Owner.DisplayName = std::move(node.value);
+            result.Contents[contentsIdx].Owner.DisplayName = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.Owner.ID") {
-            response.Contents[contentsIdx].Owner.ID = std::move(node.value);
+            result.Contents[contentsIdx].Owner.ID = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.RestoreStatus.IsRestoreInProgress") {
-            response.Contents[contentsIdx].RestoreStatus.IsRestoreInProgress = Parser.parseBool(node.value);
+            result.Contents[contentsIdx].RestoreStatus.IsRestoreInProgress = Parser.parseBool(node.value);
         } else if (node.tag == "ListBucketResult.Contents.RestoreStatus.RestoreExpiryDate") {
-            response.Contents[contentsIdx].RestoreStatus.RestoreExpiryDate = std::move(node.value);
+            result.Contents[contentsIdx].RestoreStatus.RestoreExpiryDate = std::move(node.value);
         } else if (node.tag == "ListBucketResult.Contents.Size") {
-            response.Contents[contentsIdx].Size = Parser.parseNumber<long>(node.value);
+            result.Contents[contentsIdx].Size = Parser.parseNumber<long>(node.value);
         } else if (node.tag == "ListBucketResult.Contents.StorageClass") {
-            response.Contents[contentsIdx].StorageClass = std::move(node.value);
+            result.Contents[contentsIdx].StorageClass = std::move(node.value);
         } else if (node.tag == "ListBucketResult.CommonPrefixes.Prefix") {
-            response.CommonPrefixes[commonPrefixesIdx].Prefix = std::move(node.value);
+            result.CommonPrefixes[commonPrefixesIdx].Prefix = std::move(node.value);
         } else {
             // Detect and parse error
             // Note(cristian): This fallback should not be needed as we have
@@ -145,14 +147,14 @@ std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(co
     }
 
     // Remove the initial empty object if it was never populated
-    if (!response.Contents.empty() && response.Contents[0].Key.empty()) {
-        response.Contents.erase(response.Contents.begin());
+    if (!result.Contents.empty() && result.Contents[0].Key.empty()) {
+        result.Contents.erase(result.Contents.begin());
     }
-    if (!response.CommonPrefixes.empty() && response.CommonPrefixes[0].Prefix.empty()) {
-        response.CommonPrefixes.erase(response.CommonPrefixes.begin());
+    if (!result.CommonPrefixes.empty() && result.CommonPrefixes[0].Prefix.empty()) {
+        result.CommonPrefixes.erase(result.CommonPrefixes.begin());
     }
 
-    return response;
+    return result;
 }
 
 std::expected<std::string, Error> S3Client::GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options) {
@@ -181,23 +183,26 @@ std::expected<std::string, Error> S3Client::GetObject(const std::string& bucket,
     return std::unexpected<Error>(deserializeError(Parser.parse(res.body())));
 }
 
-std::expected<PutObjectResult, Error> S3Client::PutObject(const std::string& bucket, const std::string& key, const PutObjectInput& options) {
+std::expected<PutObjectResult, Error> S3Client::PutObject(const std::string& bucket, const std::string& key, const std::string& body, const PutObjectInput& options) {
+    // TODO(cristian): For now let's support only string body
+
     std::string url = buildURL(bucket) + std::format("/{}", key);
 
-    HttpBodyRequest req = Client.put(url).header("Host", getHostHeader(bucket));
+    HttpBodyRequest req = Client.put(url)
+        .header("Host", getHostHeader(bucket))
+        .body(body);
 
     // opt headers
-	 // ...
+    // ...
 
-    // Signer.sign(req);
-    // HttpResponse res = req.execute();
-    //
-    // if (res.is_ok()) {
-    //     return res.body();
-    // }
-    // return std::unexpected<Error>(deserializeError(Parser.parse(res.body())));
+    Signer.sign(req);
+    HttpResponse res = req.execute();
 
-	 return std::unexpected<Error>(deserializeError(Parser.parse("")));
+    if (res.is_ok()) {
+        return deserializePutObjectResult(res.headers());
+    }
+    const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
+    return std::unexpected<Error>(deserializeError(XMLBody));
 }
 
 Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
@@ -220,4 +225,54 @@ Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
     }
 
     return error;
+}
+
+std::expected<PutObjectResult, Error> S3Client::deserializePutObjectResult(const std::map<std::string, std::string, LowerCaseCompare>& headers) {
+    PutObjectResult result;
+
+
+    for (const auto& [header, value] : headers) {
+        /* Sigh... no reflection */
+		if (header == "ETag")
+			result.ETag = std::move(value);
+		else if (header == "Expiration")
+			result.Expiration = std::move(value);
+		else if (header == "ChecksumCRC32")
+			result.ChecksumCRC32 = std::move(value);
+		else if (header == "ChecksumCRC32C")
+			result.ChecksumCRC32C = std::move(value);
+		else if (header == "ChecksumCRC64NVME")
+			result.ChecksumCRC64NVME = std::move(value);
+		else if (header == "ChecksumSHA1")
+			result.ChecksumSHA1 = std::move(value);
+		else if (header == "ChecksumSHA256")
+			result.ChecksumSHA256 = std::move(value);
+		else if (header == "ChecksumType")
+			result.ChecksumType = std::move(value);
+		else if (header == "ServerSideEncryption")
+			result.ServerSideEncryption = std::move(value);
+		else if (header == "VersionId")
+			result.VersionId = std::move(value);
+		else if (header == "SSECustomerAlgorithm")
+			result.SSECustomerAlgorithm = std::move(value);
+		else if (header == "SSECustomerKeyMD5")
+			result.SSECustomerKeyMD5 = std::move(value);
+		else if (header == "SSEKMSKeyId")
+			result.SSEKMSKeyId = std::move(value);
+		else if (header == "SSEKMSEncryptionContext")
+			result.SSEKMSEncryptionContext = std::move(value);
+		else if (header == "BucketKeyEnabled")
+			result.BucketKeyEnabled = Parser.parseBool(value);
+		else if (header == "Size")
+			result.Size = Parser.parseNumber<int64_t>(value);
+		else if (header == "RequestCharged")
+			result.RequestCharged = std::move(value);
+		else {
+			continue;
+			// To debug:
+			// throw std::runtime_error(std::format("No case for PutObjectResult response found for: {}", header));
+		}
+    }
+
+    return result;
 }

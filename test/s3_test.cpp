@@ -307,13 +307,22 @@ TEST(S3, GetObjectWithRange) {
     }
 }
 
-TEST(S3, GetObjectImage) {
+TEST(S3, PutObjectTxt) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
-        auto response = client.GetObject("my-bucket", "images/image.jpg");
-        if (!response) {
-            GTEST_FAIL();
+        auto PutResponse = client.PutObject("my-bucket", "some/file.txt", "hello, from s3");
+        if (!PutResponse) {
+            FAIL() << std::format("PutObject request failed: Code={}, Message={}",
+                PutResponse.error().Code,
+                PutResponse.error().Message);
         }
+        std::expected<std::string, Error> GetResponse = client.GetObject("my-bucket", "some/file.txt");
+        if (!GetResponse) {
+            FAIL() << std::format("GetObject request failed: Code={}, Message={}",
+                GetResponse.error().Code,
+                GetResponse.error().Message);
+        }
+        EXPECT_EQ(GetResponse.value(), "hello, from s3");
     } catch (const std::exception& e) {
         const std::string emsg = e.what();
         if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error: Couldn't connect to server") {

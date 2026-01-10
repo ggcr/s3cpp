@@ -21,6 +21,16 @@ enum class HttpMethod {
     Delete
 };
 
+struct LowerCaseCompare { // A custom lambda to sort keys alphabetically
+    bool operator()(const std::string& a, const std::string& b) const {
+        std::string sa = a;
+        std::string sb = b;
+        std::transform(sa.begin(), sa.end(), sa.begin(), ::tolower);
+        std::transform(sb.begin(), sb.end(), sb.begin(), ::tolower);
+        return sa < sb;
+    }
+};
+
 class HttpResponse {
 public:
     HttpResponse(int c)
@@ -28,10 +38,10 @@ public:
     HttpResponse(int c, std::string b)
         : code_(c)
         , body_(std::move(b)) { };
-    HttpResponse(int c, std::map<std::string, std::string> h)
+    HttpResponse(int c, std::map<std::string, std::string, LowerCaseCompare> h)
         : code_(c)
         , headers_(std::move(h)) { };
-    HttpResponse(int c, std::string b, std::map<std::string, std::string> h)
+    HttpResponse(int c, std::string b, std::map<std::string, std::string, LowerCaseCompare> h)
         : code_(c)
         , body_(std::move(b))
         , headers_(std::move(h)) { };
@@ -39,7 +49,7 @@ public:
     // Getters
     int status() const { return code_; }
     const std::string& body() const { return body_; }
-    const std::map<std::string, std::string>& headers() const { return headers_; }
+    const auto& headers() const { return headers_; }
 
     // Status via code
     bool is_ok() const { return code_ >= 200 && code_ < 300; }
@@ -54,7 +64,7 @@ public:
 private:
     int code_;
     std::string body_;
-    std::map<std::string, std::string> headers_;
+    std::map<std::string, std::string, LowerCaseCompare> headers_;
 };
 
 // HttpRequest will handle all the headers and request params
@@ -93,11 +103,11 @@ public:
     const std::string& getURL() const { return URL_; }
     const HttpMethod& getHttpMethod() const { return http_method_; }
     const long long getTimeout() const { return timeout_.count(); }
-    const std::map<std::string, std::string>& getHeaders() const {
+    const std::map<std::string, std::string, LowerCaseCompare>& getHeaders() const {
         return headers_;
     }
 
-		// Cannonicalize HTTP verb from the request
+    // Cannonicalize HTTP verb from the request
     const std::string getHttpMethodStr(const HttpMethod& http_method) const {
         switch (http_method) {
         case HttpMethod::Get:
@@ -115,12 +125,10 @@ public:
         }
     }
 
-
-
 protected:
     HttpClient& client_;
     std::string URL_;
-    std::map<std::string, std::string> headers_;
+    std::map<std::string, std::string, LowerCaseCompare> headers_;
     std::chrono::seconds timeout_;
     HttpMethod http_method_;
 };

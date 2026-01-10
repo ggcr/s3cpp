@@ -17,6 +17,16 @@ void AWSSigV4Signer::sign(HttpRequestBase<T>& request) {
     // Autorization
     const std::string hash_algo = "AWS4-HMAC-SHA256";
 
+    // Compute payload hash and set header ONLY for body requests
+    std::string payload_hash;
+    if constexpr (std::is_same_v<T, HttpBodyRequest>) {
+        const std::string& body = static_cast<HttpBodyRequest&>(request).getBody();
+        payload_hash = hex(sha256(body));
+        request.header("x-amz-content-sha256", payload_hash);
+    } else {
+        payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    }
+
     // Compute date and add it as a header
     const std::string timestamp = this->getTimestamp();
     request.header("X-Amz-Date", timestamp);
@@ -39,7 +49,7 @@ void AWSSigV4Signer::sign(HttpRequestBase<T>& request) {
     }
 
     // Cannonical request
-    std::string hex_cannonical_request = hex(sha256(createCannonicalRequest(request)));
+    std::string hex_cannonical_request = hex(sha256(createCannonicalRequest(request, payload_hash)));
 
     // To sign
     std::string string_to_sign = std::format("{}\n{}\n{}\n{}", hash_algo, timestamp, credential_scope, hex_cannonical_request);
@@ -50,7 +60,7 @@ void AWSSigV4Signer::sign(HttpRequestBase<T>& request) {
 }
 
 template <typename T>
-std::string AWSSigV4Signer::createCannonicalRequest(HttpRequestBase<T>& request) {
+std::string AWSSigV4Signer::createCannonicalRequest(HttpRequestBase<T>& request, const std::string& payload_hash) {
     const std::string http_verb = request.getHttpMethodStr(request.getHttpMethod());
     std::string url = request.getURL();
 
@@ -93,14 +103,13 @@ std::string AWSSigV4Signer::createCannonicalRequest(HttpRequestBase<T>& request)
     }
 
     // Canonical Headers + SignedHeaders
-    const std::map<std::string, std::string> headers = request.getHeaders();
+    const std::map<std::string, std::string, LowerCaseCompare> headers = request.getHeaders();
     std::string cheaders = "";
     std::string signed_headers = "";
     uint_fast16_t i = 0;
     for (const auto& header : headers) {
         std::string kHeader = header.first;
-        std::transform(kHeader.begin(), kHeader.end(), kHeader.begin(),
-            ::tolower);
+        std::transform(kHeader.begin(), kHeader.end(), kHeader.begin(), ::tolower);
         if (i > 0)
             signed_headers += ";";
         signed_headers += kHeader;
@@ -108,19 +117,15 @@ std::string AWSSigV4Signer::createCannonicalRequest(HttpRequestBase<T>& request)
         i++;
     }
 
-    std::string payload_hash;
-    if constexpr (std::is_same_v<T, HttpBodyRequest>) {
-        const std::string& body = static_cast<HttpBodyRequest&>(request).getBody();
-        payload_hash = hex(sha256(body));
-    } else {
-        payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-    }
+    std::string canonical_request = std::format("{}\n{}\n{}\n{}\n{}\n{}",
+        http_verb,
+        cannonical_uri,
+        query_str,
+        cheaders,
+        signed_headers,
+        payload_hash);
 
-    // The x-amz-content-sha256 header is required for Amazon S3 AWS requests. It provides a hash of the request payload. If there is no payload, you must provide the hash of an empty string.
-    request.header("x-amz-content-sha256", payload_hash);
-
-    return std::format("{}\n{}\n{}\n{}\n{}\n{}", http_verb, cannonical_uri, query_str,
-        cheaders, signed_headers, payload_hash);
+    return canonical_request;
 }
 
 const unsigned char* AWSSigV4Signer::sha256(const std::string& str) {
@@ -194,5 +199,5 @@ const unsigned char* AWSSigV4Signer::deriveSigningKey(const std::string request_
 // Why are we still here? Just to suffer?
 template void AWSSigV4Signer::sign<HttpRequest>(HttpRequestBase<HttpRequest>&);
 template void AWSSigV4Signer::sign<HttpBodyRequest>(HttpRequestBase<HttpBodyRequest>&);
-template std::string AWSSigV4Signer::createCannonicalRequest<HttpRequest>(HttpRequestBase<HttpRequest>&);
-template std::string AWSSigV4Signer::createCannonicalRequest<HttpBodyRequest>(HttpRequestBase<HttpBodyRequest>&);
+template std::string AWSSigV4Signer::createCannonicalRequest<HttpRequest>(HttpRequestBase<HttpRequest>&, const std::string&);
+template std::string AWSSigV4Signer::createCannonicalRequest<HttpBodyRequest>(HttpRequestBase<HttpBodyRequest>&, const std::string&);

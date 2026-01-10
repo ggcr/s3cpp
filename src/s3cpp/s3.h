@@ -1,3 +1,4 @@
+#include "s3cpp/httpclient.h"
 #include <expected>
 #include <s3cpp/auth.h>
 #include <s3cpp/types.h>
@@ -30,14 +31,15 @@ public:
         , addressing_style_(style) {
     }
 
-	 // S3 operations
+    // S3 operations
     std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const ListObjectsInput& options = {});
     std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options = {});
-    std::expected<PutObjectResult, Error> PutObject(const std::string& bucket, const std::string& key, const PutObjectInput& options = {});
+    std::expected<PutObjectResult, Error> PutObject(const std::string& bucket, const std::string& key, const std::string& body, const PutObjectInput& options = {});
     // TODO(cristian): HeadBucket and HeadObject, PutObject, CreateBucket
 
-	 // S3 responses
+    // S3 responses
     std::expected<ListObjectsResult, Error> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
+    std::expected<PutObjectResult, Error> deserializePutObjectResult(const std::map<std::string, std::string, LowerCaseCompare>& headers);
     Error deserializeError(const std::vector<XMLNode>& nodes);
 
 private:
@@ -83,9 +85,9 @@ public:
 
     std::expected<ListObjectsResult, Error> NextPage() {
         ListObjectsInput options;
-        if (!continuationToken_.empty()) 
+        if (!continuationToken_.empty())
             options.ContinuationToken = continuationToken_;
-        if (!prefix_.empty()) 
+        if (!prefix_.empty())
             options.Prefix = prefix_;
         options.MaxKeys = maxKeys_;
 

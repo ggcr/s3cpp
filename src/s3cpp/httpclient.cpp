@@ -38,7 +38,7 @@ HttpResponse HttpClient::execute_get(HttpRequest& request) {
             "cURL handle is invalid");
     }
     std::string body_buf;
-    std::map<std::string, std::string> headers_buf;
+    std::map<std::string, std::string, LowerCaseCompare> headers_buf;
     std::string error_buf;
 
     // TODO(cristian): from libcurl docs, they state that each curl handle has
@@ -48,6 +48,9 @@ HttpResponse HttpClient::execute_get(HttpRequest& request) {
     //
     // curl_easy_reset(curl_handle);
 
+    curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1L);
+    curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
+    curl_easy_setopt(curl_handle, CURLOPT_NOBODY, 0L);
     curl_easy_setopt(curl_handle, CURLOPT_URL, request.getURL().c_str());
     // body callback
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
@@ -90,9 +93,10 @@ HttpResponse HttpClient::execute_head(HttpRequest& request) {
             // is invalidated in the HTTPClient copy constructor
             "cURL handle is invalid");
     }
-    std::map<std::string, std::string> headers_buf;
+    std::map<std::string, std::string, LowerCaseCompare> headers_buf;
     std::string error_buf;
 
+    curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(curl_handle, CURLOPT_URL, request.getURL().c_str());
     curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, &headers_buf);
@@ -132,7 +136,7 @@ HttpResponse HttpClient::execute_post(HttpBodyRequest& request) {
             "cURL handle is invalid");
     }
     std::string body_buf;
-    std::map<std::string, std::string> headers_buf;
+    std::map<std::string, std::string, LowerCaseCompare> headers_buf;
     std::string error_buf;
 
     // TODO(cristian): from libcurl docs, they state that each curl handle has
@@ -142,6 +146,7 @@ HttpResponse HttpClient::execute_post(HttpBodyRequest& request) {
     //
     // curl_easy_reset(curl_handle);
 
+    curl_easy_setopt(curl_handle, CURLOPT_NOBODY, 0L);
     curl_easy_setopt(curl_handle, CURLOPT_URL, request.getURL().c_str());
     // body callback
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
@@ -193,7 +198,7 @@ HttpResponse HttpClient::execute_delete(HttpBodyRequest& request) {
             "cURL handle is invalid");
     }
     std::string body_buf;
-    std::map<std::string, std::string> headers_buf;
+    std::map<std::string, std::string, LowerCaseCompare> headers_buf;
     std::string error_buf;
 
     // TODO(cristian): from libcurl docs, they state that each curl handle has
