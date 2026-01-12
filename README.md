@@ -1,7 +1,7 @@
 # s3cpp
 
 > [!WARNING]
-> **WIP** Currently supports only ListObjectsV2
+> **WIP** Currently supports only ListObjectsV2, GetObject, PutObject and CreateBucket
 
 A lightweight C++ client library for AWS S3, with zero 3rd party C++ dependencies (only libcurl and OpenSSL). Inspired by the AWS SDK for Go.
 
