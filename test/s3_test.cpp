@@ -1,5 +1,29 @@
 #include "gtest/gtest.h"
 #include <s3cpp/s3.h>
+#include <random>
+#include <string>
+
+
+class SetupMinIO : public ::testing::Test {
+	// Setup a MinIO bucket with some contents already
+	protected:
+		static void SetUpTestSuite() {
+			return;
+		}
+};
+
+std::string generateRandomBucketName(const std::string& prefix = "test-bucket") {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<> dis(0, 35);
+
+    const char* chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    std::string suffix;
+    for (int i = 0; i < 8; ++i) {
+        suffix += chars[dis(gen)];
+    }
+    return prefix + "-" + suffix;
+}
 
 TEST(S3, ListObjectsBucket) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
@@ -327,6 +351,124 @@ TEST(S3, PutObjectTxt) {
         const std::string emsg = e.what();
         if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error for request: Could not connect to server") {
             GTEST_SKIP_("Skipping GetObjectWithRange: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, CreateBucket) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        std::string bucketName = generateRandomBucketName("test-bucket-s3cpp");
+        CreateBucketConfiguration config;
+        CreateBucketInput options;
+
+        auto res = client.CreateBucket(bucketName, config, options);
+        if (!res) {
+            FAIL() << std::format("CreateBucket request failed: Code={}, Message={}",
+                res.error().Code,
+                res.error().Message);
+        }
+
+        std::expected<ListObjectsResult, Error> listRes = client.ListObjects(bucketName);
+        if (!listRes) {
+            FAIL() << std::format("ListObjects after CreateBucket failed: Code={}, Message={}",
+                listRes.error().Code,
+                listRes.error().Message);
+        }
+        EXPECT_EQ(listRes->Name, bucketName);
+        EXPECT_EQ(listRes->Contents.size(), 0);
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error for request: Could not connect to server") {
+            GTEST_SKIP_("Skipping CreateBucket: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, CreateBucketWithLocationConstraint) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        std::string bucketName = generateRandomBucketName("test-bucket-location");
+        CreateBucketConfiguration config;
+        config.LocationConstraint = "us-west-2";
+        CreateBucketInput options;
+
+        auto res = client.CreateBucket(bucketName, config, options);
+        if (!res) {
+            FAIL() << std::format("CreateBucket with LocationConstraint failed: Code={}, Message={}",
+                res.error().Code,
+                res.error().Message);
+        }
+
+        EXPECT_FALSE(res->Location.empty());
+        EXPECT_EQ(res->Location, std::format("/{}", bucketName));
+
+        std::expected<ListObjectsResult, Error> listRes = client.ListObjects(bucketName);
+        if (!listRes) {
+            FAIL() << "Failed to list objects in newly created bucket";
+        }
+        EXPECT_EQ(listRes->Name, bucketName);
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error for request: Could not connect to server") {
+            GTEST_SKIP_("Skipping CreateBucketWithLocationConstraint: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, CreateBucketWithTags) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        std::string bucketName = generateRandomBucketName("test-bucket-tags");
+        CreateBucketConfiguration config;
+        config.Tags = {
+            {"Environment", "Test"},
+            {"Project", "s3cpp"}
+        };
+        CreateBucketInput options;
+
+        auto res = client.CreateBucket(bucketName, config, options);
+        if (!res) {
+            FAIL() << std::format("CreateBucket with Tags failed: Code={}, Message={}",
+                res.error().Code,
+                res.error().Message);
+        }
+
+        std::expected<ListObjectsResult, Error> listRes = client.ListObjects(bucketName);
+        if (!listRes) {
+            FAIL() << "Failed to list objects in newly created bucket";
+        }
+        EXPECT_EQ(listRes->Name, bucketName);
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error for request: Could not connect to server") {
+            GTEST_SKIP_("Skipping CreateBucketWithTags: Server not up");
+        }
+        throw;
+    }
+}
+
+TEST(S3, CreateBucketAlreadyExists) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    try {
+        CreateBucketConfiguration config;
+        CreateBucketInput options;
+
+        auto res = client.CreateBucket("my-bucket", config, options);
+        if (res) {
+            FAIL() << "CreateBucket should fail when bucket already exists";
+        }
+
+        // BucketAlreadyOwnedByYou error
+        Error error = res.error();
+        EXPECT_TRUE(error.Code == "BucketAlreadyOwnedByYou" || error.Code == "BucketAlreadyExists");
+    } catch (const std::exception& e) {
+        const std::string emsg = e.what();
+        if (emsg == "libcurl error: Could not connect to server" || emsg == "libcurl error for request: Could not connect to server") {
+            GTEST_SKIP_("Skipping CreateBucketAlreadyExists: Server not up");
         }
         throw;
     }

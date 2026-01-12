@@ -32,7 +32,6 @@ std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string&
     // opt headers
     if (options.ExpectedBucketOwner.has_value())
         req.header("x-amz-expected-bucket-owner", options.ExpectedBucketOwner.value());
-
     if (options.RequestPayer.has_value())
         req.header("x-amz-request-payer", options.RequestPayer.value());
 
@@ -189,8 +188,8 @@ std::expected<PutObjectResult, Error> S3Client::PutObject(const std::string& buc
     std::string url = buildURL(bucket) + std::format("/{}", key);
 
     HttpBodyRequest req = Client.put(url)
-        .header("Host", getHostHeader(bucket))
-        .body(body);
+                              .header("Host", getHostHeader(bucket))
+                              .body(body);
 
     // opt headers
     // ...
@@ -200,6 +199,81 @@ std::expected<PutObjectResult, Error> S3Client::PutObject(const std::string& buc
 
     if (res.is_ok()) {
         return deserializePutObjectResult(res.headers());
+    }
+    const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
+    return std::unexpected<Error>(deserializeError(XMLBody));
+}
+
+std::expected<CreateBucketResult, Error> S3Client::CreateBucket(
+    const std::string& bucket,
+    const CreateBucketConfiguration& configuration,
+    const CreateBucketInput& options) {
+
+    std::string url = buildURL(bucket);
+
+    HttpBodyRequest req = Client.put(url).header("Host", getHostHeader(bucket));
+
+    // opt headers
+    if (options.ACL.has_value())
+        req.header("x-amz-acl", std::move(options.ACL.value()));
+    if (options.GrantFullControl.has_value())
+        req.header("x-amz-grant-full-control", std::move(options.GrantFullControl.value()));
+    if (options.GrantRead.has_value())
+        req.header("x-amz-grant-read", std::move(options.GrantRead.value()));
+    if (options.GrantReadACP.has_value())
+        req.header("x-amz-grant-read-acp", std::move(options.GrantReadACP.value()));
+    if (options.GrantWrite.has_value())
+        req.header("x-amz-grant-write", std::move(options.GrantWrite.value()));
+    if (options.GrantWriteACP.has_value())
+        req.header("x-amz-grant-write-acp", std::move(options.GrantWriteACP.value()));
+    if (options.ObjectLockEnabledForBucket.has_value()) {
+        auto booleanValueStr = (options.ObjectLockEnabledForBucket.value() == true) ? "true" : "false";
+        req.header("x-amz-bucket-object-lock-enabled", std::move(booleanValueStr));
+    }
+    if (options.ObjectOwnership.has_value())
+        req.header("x-amz-object-ownership", std::move(options.ObjectOwnership.value()));
+
+    // XML request body
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucket.html#API_CreateBucket_RequestSyntax
+    std::string createBucketReqBodyXML = R"(<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">)";
+    // TODO(cristian): is this if statement needed?
+    // That is, can we do <LocationConstraint></LocationConstraint> if it's not provided?
+    if (!configuration.LocationConstraint.empty())
+        createBucketReqBodyXML += std::format("<LocationConstraint>{}</LocationConstraint>", configuration.LocationConstraint);
+    if (!configuration.Location.Name.empty() || !configuration.Location.Type.empty()) {
+        createBucketReqBodyXML += "<Location>";
+        if (!configuration.Location.Name.empty())
+            createBucketReqBodyXML += std::format("<Name>{}</Name>", configuration.Location.Name);
+        if (!configuration.Location.Type.empty())
+            createBucketReqBodyXML += std::format("<Type>{}</Type>", configuration.Location.Type);
+        createBucketReqBodyXML += "</Location>";
+    }
+    if (!configuration.Bucket.DataRedundancy.empty() || !configuration.Bucket.Type.empty()) {
+        createBucketReqBodyXML += "<Bucket>";
+        if (!configuration.Bucket.DataRedundancy.empty())
+            createBucketReqBodyXML += std::format("<DataRedundancy>{}</DataRedundancy>", configuration.Bucket.DataRedundancy);
+        if (!configuration.Bucket.Type.empty())
+            createBucketReqBodyXML += std::format("<Type>{}</Type>", configuration.Bucket.Type);
+        createBucketReqBodyXML += "</Bucket>";
+    }
+    if (!configuration.Tags.empty()) {
+        createBucketReqBodyXML += "<Tags>";
+        for (const auto& tag : configuration.Tags) {
+            createBucketReqBodyXML += "<Tag>";
+            createBucketReqBodyXML += std::format("<Key>{}</Key>", tag.Key);
+            createBucketReqBodyXML += std::format("<Value>{}</Value>", tag.Value);
+            createBucketReqBodyXML += "</Tag>";
+        }
+        createBucketReqBodyXML += "</Tags>";
+    }
+    createBucketReqBodyXML += "</CreateBucketConfiguration>";
+    req.body(std::move(createBucketReqBodyXML));
+
+    Signer.sign(req);
+    HttpResponse res = req.execute();
+
+    if (res.is_ok()) {
+        return deserializeCreateBucketResult(res.headers());
     }
     const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
     return std::unexpected<Error>(deserializeError(XMLBody));
@@ -230,48 +304,63 @@ Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
 std::expected<PutObjectResult, Error> S3Client::deserializePutObjectResult(const std::map<std::string, std::string, LowerCaseCompare>& headers) {
     PutObjectResult result;
 
-
     for (const auto& [header, value] : headers) {
         /* Sigh... no reflection */
-		if (header == "ETag")
-			result.ETag = std::move(value);
-		else if (header == "Expiration")
-			result.Expiration = std::move(value);
-		else if (header == "ChecksumCRC32")
-			result.ChecksumCRC32 = std::move(value);
-		else if (header == "ChecksumCRC32C")
-			result.ChecksumCRC32C = std::move(value);
-		else if (header == "ChecksumCRC64NVME")
-			result.ChecksumCRC64NVME = std::move(value);
-		else if (header == "ChecksumSHA1")
-			result.ChecksumSHA1 = std::move(value);
-		else if (header == "ChecksumSHA256")
-			result.ChecksumSHA256 = std::move(value);
-		else if (header == "ChecksumType")
-			result.ChecksumType = std::move(value);
-		else if (header == "ServerSideEncryption")
-			result.ServerSideEncryption = std::move(value);
-		else if (header == "VersionId")
-			result.VersionId = std::move(value);
-		else if (header == "SSECustomerAlgorithm")
-			result.SSECustomerAlgorithm = std::move(value);
-		else if (header == "SSECustomerKeyMD5")
-			result.SSECustomerKeyMD5 = std::move(value);
-		else if (header == "SSEKMSKeyId")
-			result.SSEKMSKeyId = std::move(value);
-		else if (header == "SSEKMSEncryptionContext")
-			result.SSEKMSEncryptionContext = std::move(value);
-		else if (header == "BucketKeyEnabled")
-			result.BucketKeyEnabled = Parser.parseBool(value);
-		else if (header == "Size")
-			result.Size = Parser.parseNumber<int64_t>(value);
-		else if (header == "RequestCharged")
-			result.RequestCharged = std::move(value);
-		else {
-			continue;
-			// To debug:
-			// throw std::runtime_error(std::format("No case for PutObjectResult response found for: {}", header));
-		}
+        if (header == "ETag")
+            result.ETag = std::move(value);
+        else if (header == "Expiration")
+            result.Expiration = std::move(value);
+        else if (header == "ChecksumCRC32")
+            result.ChecksumCRC32 = std::move(value);
+        else if (header == "ChecksumCRC32C")
+            result.ChecksumCRC32C = std::move(value);
+        else if (header == "ChecksumCRC64NVME")
+            result.ChecksumCRC64NVME = std::move(value);
+        else if (header == "ChecksumSHA1")
+            result.ChecksumSHA1 = std::move(value);
+        else if (header == "ChecksumSHA256")
+            result.ChecksumSHA256 = std::move(value);
+        else if (header == "ChecksumType")
+            result.ChecksumType = std::move(value);
+        else if (header == "ServerSideEncryption")
+            result.ServerSideEncryption = std::move(value);
+        else if (header == "VersionId")
+            result.VersionId = std::move(value);
+        else if (header == "SSECustomerAlgorithm")
+            result.SSECustomerAlgorithm = std::move(value);
+        else if (header == "SSECustomerKeyMD5")
+            result.SSECustomerKeyMD5 = std::move(value);
+        else if (header == "SSEKMSKeyId")
+            result.SSEKMSKeyId = std::move(value);
+        else if (header == "SSEKMSEncryptionContext")
+            result.SSEKMSEncryptionContext = std::move(value);
+        else if (header == "BucketKeyEnabled")
+            result.BucketKeyEnabled = Parser.parseBool(value);
+        else if (header == "Size")
+            result.Size = Parser.parseNumber<int64_t>(value);
+        else if (header == "RequestCharged")
+            result.RequestCharged = std::move(value);
+        else {
+            continue;
+            // To debug:
+            // throw std::runtime_error(std::format("No case for PutObjectResult response found for: {}", header));
+        }
+    }
+
+    return result;
+}
+
+std::expected<CreateBucketResult, Error> S3Client::deserializeCreateBucketResult(const std::map<std::string, std::string, LowerCaseCompare>& headers) {
+    CreateBucketResult result;
+
+    for (const auto& [header, value] : headers) {
+        if (header == "Location")
+            result.Location = std::move(value);
+        else if (header == "x-amz-bucket-arn")
+            result.BucketARN = std::move(value);
+        else {
+            continue;
+        }
     }
 
     return result;

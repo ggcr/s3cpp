@@ -6,7 +6,6 @@
 
 class S3Client {
 public:
-    // TODO(cristian): We should accept and define the endpoint url here
     S3Client(const std::string& access, const std::string& secret)
         : Client(HttpClient())
         , Signer(AWSSigV4Signer(access, secret))
@@ -31,15 +30,21 @@ public:
         , addressing_style_(style) {
     }
 
+    /* TODO(cristian): Re-thing this
+	  * In Go, this would be generalized using reflection and adding a 
+     */
+
     // S3 operations
     std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const ListObjectsInput& options = {});
     std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options = {});
     std::expected<PutObjectResult, Error> PutObject(const std::string& bucket, const std::string& key, const std::string& body, const PutObjectInput& options = {});
-    // TODO(cristian): HeadBucket and HeadObject, PutObject, CreateBucket
+    std::expected<CreateBucketResult, Error> CreateBucket(const std::string& bucket, const CreateBucketConfiguration& configuration = {}, const CreateBucketInput& options = {});
+    // TODO(cristian): HeadBucket and HeadObject
 
     // S3 responses
     std::expected<ListObjectsResult, Error> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
     std::expected<PutObjectResult, Error> deserializePutObjectResult(const std::map<std::string, std::string, LowerCaseCompare>& headers);
+    std::expected<CreateBucketResult, Error> deserializeCreateBucketResult(const std::map<std::string, std::string, LowerCaseCompare>& headers);
     Error deserializeError(const std::vector<XMLNode>& nodes);
 
 private:
