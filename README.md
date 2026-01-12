@@ -141,4 +141,4 @@ docker run -p 9000:9000 -p 9001:9001 \
   quay.io/minio/minio server /data --console-address ":9001"
 ```
 
-The test suite contains 37 tests covering HTTP, AWS SigV4, XML, and S3 ListObjectsV2
+The full test suite contains 54 tests
