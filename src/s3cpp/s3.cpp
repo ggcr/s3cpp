@@ -1,6 +1,5 @@
 #include "s3cpp/httpclient.h"
 #include <expected>
-#include <print>
 #include <s3cpp/s3.h>
 
 std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string& bucket, const ListObjectsInput& options) {
