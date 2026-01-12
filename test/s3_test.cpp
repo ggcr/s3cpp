@@ -1,15 +1,34 @@
 #include "gtest/gtest.h"
-#include <s3cpp/s3.h>
 #include <random>
+#include <s3cpp/s3.h>
+#include <stdexcept>
 #include <string>
 
+class S3 : public ::testing::Test {
+    // Setup a MinIO bucket with some contents already
+protected:
+    static void SetUpTestCase() {
+        S3Client client = S3Client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
 
-class SetupMinIO : public ::testing::Test {
-	// Setup a MinIO bucket with some contents already
-	protected:
-		static void SetUpTestSuite() {
-			return;
-		}
+        // Create bucket "my-bucket"
+        auto createBucketRes = client.CreateBucket("my-bucket");
+        if (!createBucketRes && createBucketRes.error().Code != "BucketAlreadyOwnedByYou") { // Skip if already created
+            throw std::runtime_error("SetUpTestSuite: Unable to create bucket");
+        }
+
+        // Upload 10k files
+        if (client.ListObjects("my-bucket")->Contents.empty()) {
+            for (int i = 1; i <= 10'000; i++) {
+                const std::string key = std::format("path/to/file_{}.txt", i);
+                const std::string body = std::format("This is test file number {}", i);
+                auto putObjRes = client.PutObject("my-bucket", key, body);
+                if (!putObjRes)
+                    throw std::runtime_error("SetUpTestSuite: Unable to put object");
+            }
+        }
+
+        return;
+    }
 };
 
 std::string generateRandomBucketName(const std::string& prefix = "test-bucket") {
@@ -25,7 +44,7 @@ std::string generateRandomBucketName(const std::string& prefix = "test-bucket") 
     return prefix + "-" + suffix;
 }
 
-TEST(S3, ListObjectsBucket) {
+TEST_F(S3, ListObjectsBucket) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // Assuming the bucket has the 10K objects
@@ -43,7 +62,7 @@ TEST(S3, ListObjectsBucket) {
     }
 }
 
-TEST(S3, ListObjectsBucketNotExists) {
+TEST_F(S3, ListObjectsBucketNotExists) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::expected<ListObjectsResult, Error> res = client.ListObjects("Does-not-exist");
@@ -60,7 +79,7 @@ TEST(S3, ListObjectsBucketNotExists) {
     }
 }
 
-TEST(S3, ListObjectsFilePrefix) {
+TEST_F(S3, ListObjectsFilePrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // path/to/file_1.txt must exist
@@ -77,7 +96,7 @@ TEST(S3, ListObjectsFilePrefix) {
     }
 }
 
-TEST(S3, ListObjectsDirPrefix) {
+TEST_F(S3, ListObjectsDirPrefix) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // Get 100 keys
@@ -94,7 +113,7 @@ TEST(S3, ListObjectsDirPrefix) {
     }
 }
 
-TEST(S3, ListObjectsDirPrefixMaxKeys) {
+TEST_F(S3, ListObjectsDirPrefixMaxKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .MaxKeys = 1, .Prefix = "path/to/" });
@@ -110,7 +129,7 @@ TEST(S3, ListObjectsDirPrefixMaxKeys) {
     }
 }
 
-TEST(S3, ListObjectsCheckFields) {
+TEST_F(S3, ListObjectsCheckFields) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .MaxKeys = 2, .Prefix = "path/to/" });
@@ -143,7 +162,7 @@ TEST(S3, ListObjectsCheckFields) {
     }
 }
 
-TEST(S3, ListObjectsCheckLenKeys) {
+TEST_F(S3, ListObjectsCheckLenKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // has 10K objects - limit is 1000 keys
@@ -160,7 +179,7 @@ TEST(S3, ListObjectsCheckLenKeys) {
     }
 }
 
-TEST(S3, ListObjectsPaginator) {
+TEST_F(S3, ListObjectsPaginator) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // has 10K objects - fetch 100 per page
@@ -195,7 +214,7 @@ TEST(S3, ListObjectsPaginator) {
     }
 }
 
-TEST(S3, GetObjectExists) {
+TEST_F(S3, GetObjectExists) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         auto response = client.GetObject("my-bucket", "path/to/file_1.txt");
@@ -211,7 +230,7 @@ TEST(S3, GetObjectExists) {
     }
 }
 
-TEST(S3, GetObjectNotExists) {
+TEST_F(S3, GetObjectNotExists) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         auto response = client.GetObject("my-bucket", "does/not/exists.txt");
@@ -228,7 +247,7 @@ TEST(S3, GetObjectNotExists) {
     }
 }
 
-TEST(S3, GetObjectBadBucket) {
+TEST_F(S3, GetObjectBadBucket) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         auto response = client.GetObject("does-not-exist", "path/to/file_1.txt");
@@ -245,7 +264,7 @@ TEST(S3, GetObjectBadBucket) {
     }
 }
 
-TEST(S3, ListObjectsWithDelimiter) {
+TEST_F(S3, ListObjectsWithDelimiter) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Delimiter = "/", .Prefix = "path/" });
@@ -265,7 +284,7 @@ TEST(S3, ListObjectsWithDelimiter) {
     }
 }
 
-TEST(S3, ListObjectsWithStartAfter) {
+TEST_F(S3, ListObjectsWithStartAfter) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .MaxKeys = 10, .Prefix = "path/to/", .StartAfter = "path/to/file_50.txt" });
@@ -285,7 +304,7 @@ TEST(S3, ListObjectsWithStartAfter) {
     }
 }
 
-TEST(S3, ListObjectsWithContinuationToken) {
+TEST_F(S3, ListObjectsWithContinuationToken) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::expected<ListObjectsResult, Error> firstPage = client.ListObjects("my-bucket", { .MaxKeys = 10, .Prefix = "path/to/" });
@@ -312,7 +331,7 @@ TEST(S3, ListObjectsWithContinuationToken) {
     }
 }
 
-TEST(S3, GetObjectWithRange) {
+TEST_F(S3, GetObjectWithRange) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         // first 10 bytes
@@ -331,7 +350,7 @@ TEST(S3, GetObjectWithRange) {
     }
 }
 
-TEST(S3, PutObjectTxt) {
+TEST_F(S3, PutObjectTxt) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         auto PutResponse = client.PutObject("my-bucket", "some/file.txt", "hello, from s3");
@@ -356,7 +375,7 @@ TEST(S3, PutObjectTxt) {
     }
 }
 
-TEST(S3, CreateBucket) {
+TEST_F(S3, CreateBucket) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::string bucketName = generateRandomBucketName("test-bucket-s3cpp");
@@ -387,7 +406,7 @@ TEST(S3, CreateBucket) {
     }
 }
 
-TEST(S3, CreateBucketWithLocationConstraint) {
+TEST_F(S3, CreateBucketWithLocationConstraint) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::string bucketName = generateRandomBucketName("test-bucket-location");
@@ -419,14 +438,14 @@ TEST(S3, CreateBucketWithLocationConstraint) {
     }
 }
 
-TEST(S3, CreateBucketWithTags) {
+TEST_F(S3, CreateBucketWithTags) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         std::string bucketName = generateRandomBucketName("test-bucket-tags");
         CreateBucketConfiguration config;
         config.Tags = {
-            {"Environment", "Test"},
-            {"Project", "s3cpp"}
+            { "Environment", "Test" },
+            { "Project", "s3cpp" }
         };
         CreateBucketInput options;
 
@@ -451,7 +470,7 @@ TEST(S3, CreateBucketWithTags) {
     }
 }
 
-TEST(S3, CreateBucketAlreadyExists) {
+TEST_F(S3, CreateBucketAlreadyExists) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     try {
         CreateBucketConfiguration config;

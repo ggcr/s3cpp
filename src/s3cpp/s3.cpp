@@ -352,7 +352,6 @@ std::expected<PutObjectResult, Error> S3Client::deserializePutObjectResult(const
 
 std::expected<CreateBucketResult, Error> S3Client::deserializeCreateBucketResult(const std::map<std::string, std::string, LowerCaseCompare>& headers) {
     CreateBucketResult result;
-
     for (const auto& [header, value] : headers) {
         if (header == "Location")
             result.Location = std::move(value);
@@ -362,6 +361,5 @@ std::expected<CreateBucketResult, Error> S3Client::deserializeCreateBucketResult
             continue;
         }
     }
-
     return result;
 }

@@ -44,9 +44,9 @@ public:
     std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options = {});
     std::expected<PutObjectResult, Error> PutObject(const std::string& bucket, const std::string& key, const std::string& body, const PutObjectInput& options = {});
     std::expected<CreateBucketResult, Error> CreateBucket(const std::string& bucket, const CreateBucketConfiguration& configuration = {}, const CreateBucketInput& options = {});
+    // - Remove Bucket
     // - HeadBucket
     // - HeadObject
-    // - Remove Bucket
     // - Remove Object
 
     // S3 responses
