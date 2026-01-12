@@ -15,6 +15,28 @@ Each S3 Client is organized onto modular components:
 
 ## Basic Usage
 
+Create a bucket:
+
+```cpp
+#include <s3cpp/s3.h>
+
+int main() {
+    S3Client client("minio_access", "minio_secret");
+
+    auto result = client.CreateBucket("my-bucket", {
+        .LocationConstraint = "us-east-1"
+    });
+
+    if (!result) {
+        std::println("Error: {}", result.error().Message);
+        return 1;
+    }
+    return 0;
+}
+```
+
+List objects in a bucket:
+
 ```cpp
 #include <s3cpp/s3.h>
 
