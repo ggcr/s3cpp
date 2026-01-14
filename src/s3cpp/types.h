@@ -171,6 +171,23 @@ struct CreateBucketResult {
     std::optional<std::string> BucketARN;
 };
 
+struct DeleteObjectInput {
+    std::optional<std::string> versionId;
+    std::optional<std::string> If_Match;
+    std::optional<std::string> If_MatchLastModifiedTime;
+    std::optional<std::string> If_MatchSize;
+    std::optional<std::string> MFA;
+    std::optional<std::string> RequestPayer;
+    std::optional<std::string> ByPassGovernanceRetention;
+    std::optional<std::string> ExpectedBucketOwner;
+};
+
+struct DeleteObjectResult {
+    std::string versionId; 
+    std::string RequestCharged; 
+    std::string DeleteMarker; 
+};
+
 // REST generic error
 // https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#RESTErrorResponses
 struct Error {

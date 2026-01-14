@@ -203,6 +203,38 @@ std::expected<PutObjectResult, Error> S3Client::PutObject(const std::string& buc
     return std::unexpected<Error>(deserializeError(XMLBody));
 }
 
+std::expected<DeleteObjectResult, Error> S3Client::DeleteObject(const std::string& bucket, const std::string& key, const DeleteObjectInput& options = {}) {
+    std::string url = buildURL(bucket) + std::format("/{}", key);
+    if (options.versionId.has_value())
+        url += std::format("?versionId={}", options.versionId.value());
+
+    HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
+
+    // opt headers
+    if (options.MFA.has_value())
+        req.header("x-amz-mfa", options.MFA.value());
+    if (options.RequestPayer.has_value())
+        req.header("x-amz-request-payer", options.RequestPayer.value());
+    if (options.ByPassGovernanceRetention.has_value())
+        req.header("x-amz-bypass-governance-retention", options.ByPassGovernanceRetention.value());
+    if (options.ExpectedBucketOwner.has_value())
+        req.header("x-amz-expected-bucket-owner", options.ExpectedBucketOwner.value());
+    if (options.If_Match.has_value())
+        req.header("If-Match", options.If_Match.value());
+    if (options.If_MatchLastModifiedTime.has_value())
+        req.header("x-amz-if-match-last-modified-time", options.If_MatchLastModifiedTime.value());
+    if (options.If_MatchSize.has_value())
+        req.header("x-amz-if-match-size", options.If_MatchSize.value());
+
+    Signer.sign(req);
+    HttpResponse res = req.execute();
+
+    if (res.is_ok()) {
+        return deserializeDeleteObjectResult(res.headers());
+    }
+    return std::unexpected<Error>(deserializeError(Parser.parse(res.body())));
+}
+
 std::expected<CreateBucketResult, Error> S3Client::CreateBucket(
     const std::string& bucket,
     const CreateBucketConfiguration& configuration,
@@ -346,6 +378,22 @@ std::expected<PutObjectResult, Error> S3Client::deserializePutObjectResult(const
         }
     }
 
+    return result;
+}
+
+std::expected<DeleteObjectResult, Error> S3Client::deserializeDeleteObjectResult(const std::map<std::string, std::string, LowerCaseCompare>& headers) {
+    DeleteObjectResult result;
+    for (const auto& [header, value] : headers) {
+        if (header == "x-amz-version-id")
+            result.versionId = std::move(value);
+        else if (header == "x-amz-delete-marker")
+            result.DeleteMarker = std::move(value);
+        else if (header == "x-amz-request-charged")
+            result.RequestCharged = std::move(value);
+        else {
+            continue;
+        }
+    }
     return result;
 }
 

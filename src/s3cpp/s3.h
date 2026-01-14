@@ -30,6 +30,19 @@ public:
         , addressing_style_(style) {
     }
 
+    // S3 operations: Goal is to support CRUD
+    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const ListObjectsInput& options = {});
+    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options = {});
+    std::expected<PutObjectResult, Error> PutObject(const std::string& bucket, const std::string& key, const std::string& body, const PutObjectInput& options = {});
+    std::expected<DeleteObjectResult, Error> DeleteObject(const std::string& bucket, const std::string& key, const DeleteObjectInput& options = {});
+    std::expected<CreateBucketResult, Error> CreateBucket(const std::string& bucket, const CreateBucketConfiguration& configuration = {}, const CreateBucketInput& options = {});
+    // - Remove Bucket
+    // - HeadBucket
+    // - HeadObject
+    // - Remove Object
+
+    // S3 responses
+
     /* TODO(cristian): Re-factor and re-think.
      *
      * In Go, this would be generalized using reflection and adding a method
@@ -38,20 +51,9 @@ public:
      * That is; Can we have a single deserialize method that takes in a struct
      * and values and returns that?
      */
-
-    // S3 operations: Goal is to support CRUD
-    std::expected<ListObjectsResult, Error> ListObjects(const std::string& bucket, const ListObjectsInput& options = {});
-    std::expected<std::string, Error> GetObject(const std::string& bucket, const std::string& key, const GetObjectInput& options = {});
-    std::expected<PutObjectResult, Error> PutObject(const std::string& bucket, const std::string& key, const std::string& body, const PutObjectInput& options = {});
-    std::expected<CreateBucketResult, Error> CreateBucket(const std::string& bucket, const CreateBucketConfiguration& configuration = {}, const CreateBucketInput& options = {});
-    // - Remove Bucket
-    // - HeadBucket
-    // - HeadObject
-    // - Remove Object
-
-    // S3 responses
     std::expected<ListObjectsResult, Error> deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys);
     std::expected<PutObjectResult, Error> deserializePutObjectResult(const std::map<std::string, std::string, LowerCaseCompare>& headers);
+    std::expected<DeleteObjectResult, Error> deserializeDeleteObjectResult(const std::map<std::string, std::string, LowerCaseCompare>& headers);
     std::expected<CreateBucketResult, Error> deserializeCreateBucketResult(const std::map<std::string, std::string, LowerCaseCompare>& headers);
 
     Error deserializeError(const std::vector<XMLNode>& nodes);
