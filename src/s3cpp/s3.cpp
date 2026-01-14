@@ -203,7 +203,7 @@ std::expected<PutObjectResult, Error> S3Client::PutObject(const std::string& buc
     return std::unexpected<Error>(deserializeError(XMLBody));
 }
 
-std::expected<DeleteObjectResult, Error> S3Client::DeleteObject(const std::string& bucket, const std::string& key, const DeleteObjectInput& options = {}) {
+std::expected<DeleteObjectResult, Error> S3Client::DeleteObject(const std::string& bucket, const std::string& key, const DeleteObjectInput& options) {
     std::string url = buildURL(bucket) + std::format("/{}", key);
     if (options.versionId.has_value())
         url += std::format("?versionId={}", options.versionId.value());
