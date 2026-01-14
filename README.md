@@ -135,10 +135,12 @@ cmake --build build
 Some tests require a local MinIO container to be running:
 
 ```bash
-docker run -p 9000:9000 -p 9001:9001 \
+$ docker build .
+$ docker run -d -p 9000:9000 -p 9001:9001 \
   -e "MINIO_ROOT_USER=minio_access" \
   -e "MINIO_ROOT_PASSWORD=minio_secret" \
-  quay.io/minio/minio server /data --console-address ":9001"
+  s3cpp-minio:latest \
+  server /data --console-address ":9001"
 ```
 
 The full test suite contains 54 tests
