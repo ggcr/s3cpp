@@ -39,7 +39,6 @@ public:
     // - Remove Bucket
     // - HeadBucket
     // - HeadObject
-    // - Remove Object
 
     // S3 responses
 
