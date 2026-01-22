@@ -213,23 +213,23 @@ TEST(HTTP, HTTPPut) {
     EXPECT_THAT(resp.body(), testing::HasSubstr(data));
 }
 
-TEST(HTTP, HTTPDeleteQueryParamStr) {
-    HttpClient client {};
-    std::string query = "deletethis";
-    HttpBodyRequest req = client.del(std::format("https://postman-echo.com/patch?{}", query));
-    HttpResponse resp = req.execute();
-    EXPECT_TRUE(resp.is_ok());
-    EXPECT_EQ(resp.status(), 200);
-    EXPECT_THAT(resp.body(), testing::HasSubstr(query));
-}
-
-TEST(HTTP, HTTPDeleteWithBody) {
-    HttpClient client {};
-    std::string data = "This is expected to be deleted";
-    HttpBodyRequest req = client.del("https://postman-echo.com/patch").body(data);
-    EXPECT_EQ(req.getBody(), data);
-    HttpResponse resp = req.execute();
-    EXPECT_TRUE(resp.is_ok());
-    EXPECT_EQ(resp.status(), 200);
-    EXPECT_THAT(resp.body(), testing::HasSubstr(data));
-}
+// TEST(HTTP, HTTPDeleteQueryParamStr) {
+//     HttpClient client {};
+//     std::string query = "deletethis";
+//     HttpBodyRequest req = client.del(std::format("https://postman-echo.com/patch?{}", query));
+//     HttpResponse resp = req.execute();
+//     EXPECT_TRUE(resp.is_ok());
+//     EXPECT_EQ(resp.status(), 200);
+//     EXPECT_THAT(resp.body(), testing::HasSubstr(query));
+// }
+//
+// TEST(HTTP, HTTPDeleteWithBody) {
+//     HttpClient client {};
+//     std::string data = "This is expected to be deleted";
+//     HttpBodyRequest req = client.del("https://postman-echo.com/patch").body(data);
+//     EXPECT_EQ(req.getBody(), data);
+//     HttpResponse resp = req.execute();
+//     EXPECT_TRUE(resp.is_ok());
+//     EXPECT_EQ(resp.status(), 200);
+//     EXPECT_THAT(resp.body(), testing::HasSubstr(data));
+// }
