@@ -124,6 +124,45 @@ int main() {
 }
 ```
 
+Delete a non-empty bucket:
+
+```cpp
+#include <s3cpp/s3.h>
+
+int main() {
+    S3Client client("minio_access", "minio_secret");
+
+    // To delete a bucket we first need to delete all its contents
+    ListObjectsPaginator paginator(client, "my-bucket", "", 1000);
+
+    while (paginator.HasMorePages()) {
+        auto page = paginator.NextPage();
+
+        if (!page) {
+            std::println("Error listing objects: {}", page.error().Message);
+            return 1;
+        }
+
+        for (const auto& obj : page->Contents) {
+            auto result = client.DeleteObject("my-bucket", obj.Key);
+            if (!result) {
+                std::println("Error deleting {}: {}", obj.Key, result.error().Message);
+                return 1;
+            }
+        }
+    }
+
+    auto result = client.DeleteBucket("my-bucket");
+    if (!result) {
+        std::println("Error deleting bucket: {}", result.error().Message);
+        return 1;
+    }
+
+    std::println("Bucket deleted successfully");
+    return 0;
+}
+```
+
 ## Build and Test
 
 ```bash
