@@ -310,6 +310,25 @@ std::expected<CreateBucketResult, Error> S3Client::CreateBucket(
     return std::unexpected<Error>(deserializeError(XMLBody));
 }
 
+std::expected<void, Error> S3Client::DeleteBucket(const std::string& bucket, const DeleteBucketInput& options) {
+    std::string url = buildURL(bucket);
+
+    HttpBodyRequest req = Client.del(url).header("Host", getHostHeader(bucket));
+
+    // opt headers
+    if (options.ExpectedBucketOwner.has_value())
+        req.header("x-amz-expected-bucket-owner", std::move(options.ExpectedBucketOwner.value()));
+
+    Signer.sign(req);
+    HttpResponse res = req.execute();
+
+    if (res.status() == 204) {
+        return {};
+    }
+    const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
+    return std::unexpected<Error>(deserializeError(XMLBody));
+}
+
 Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
     Error error;
 

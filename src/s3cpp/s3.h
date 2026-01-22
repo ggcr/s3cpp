@@ -36,7 +36,7 @@ public:
     std::expected<PutObjectResult, Error> PutObject(const std::string& bucket, const std::string& key, const std::string& body, const PutObjectInput& options = {});
     std::expected<DeleteObjectResult, Error> DeleteObject(const std::string& bucket, const std::string& key, const DeleteObjectInput& options = {});
     std::expected<CreateBucketResult, Error> CreateBucket(const std::string& bucket, const CreateBucketConfiguration& configuration = {}, const CreateBucketInput& options = {});
-    // - Remove Bucket
+    std::expected<void, Error> DeleteBucket(const std::string& bucket, const DeleteBucketInput& options = {});
     // - HeadBucket
     // - HeadObject
 

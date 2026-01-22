@@ -10,7 +10,7 @@ int main() {
     while (paginator.HasMorePages()) {
         std::expected<ListObjectsResult, Error> page = paginator.NextPage();
 
-				if (!page) {
+        if (!page) {
             std::println("Error: {}", page.error().Message);
             return 1;
         }

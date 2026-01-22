@@ -216,7 +216,7 @@ HttpResponse HttpClient::execute_delete(HttpBodyRequest& request) {
     curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, &headers_buf);
     // delete may have or not have a body
-    curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "PATCH");
+    curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "DELETE");
     if (request.getBody() != "") // use std::optional
         curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, request.getBody().c_str());
 

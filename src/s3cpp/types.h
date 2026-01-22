@@ -188,6 +188,10 @@ struct DeleteObjectResult {
     std::string DeleteMarker; 
 };
 
+struct DeleteBucketInput {
+	std::optional<std::string> ExpectedBucketOwner;
+};
+
 // REST generic error
 // https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#RESTErrorResponses
 struct Error {

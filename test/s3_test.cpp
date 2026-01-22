@@ -330,3 +330,28 @@ TEST_F(S3, CreateBucketAlreadyExists) {
     Error error = res.error();
     EXPECT_TRUE(error.Code == "BucketAlreadyOwnedByYou" || error.Code == "BucketAlreadyExists");
 }
+
+TEST_F(S3, DeleteBucketWithElements) {
+}
+TEST_F(S3, DeleteEmptyBucket) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+    CreateBucketConfiguration config;
+    CreateBucketInput options;
+
+	 auto createBucketRes = client.CreateBucket("test-empty-bucket", config, options);
+	 if (!createBucketRes && createBucketRes.error().Code != "BucketAlreadyOwnedByYou") {
+        FAIL() << std::format("DeleteEmptyBucket: Unable to create bucket: Code={}, Message={}",
+            createBucketRes.error().Code,
+            createBucketRes.error().Message);
+	 }
+
+	 // TODO(cristian): Implement overloading of = for client.* calls
+	 auto deleteBucket = client.DeleteBucket("test-empty-bucket");
+	 if(!deleteBucket) {
+        FAIL() << std::format("DeleteBucket failed: Code={}, Message={}",
+            deleteBucket.error().Code,
+            deleteBucket.error().Message);
+	 }
+}
+TEST_F(S3, DeleteBucketAndElementsWithPaginator) {
+}
