@@ -332,26 +332,83 @@ TEST_F(S3, CreateBucketAlreadyExists) {
 }
 
 TEST_F(S3, DeleteBucketWithElements) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+
+    // Create bucket
+    CreateBucketConfiguration config;
+    CreateBucketInput options;
+    auto createBucketRes = client.CreateBucket("bucket123", config, options);
+    if (!createBucketRes && createBucketRes.error().Code != "BucketAlreadyOwnedByYou")
+        FAIL() << "Unable to create bucket";
+
+    // Add some dummy elements
+    auto putObjectRes = client.PutObject("bucket123", "/path/to/file", "Body contents");
+    // TODO(cristian): overload print operator for errors
+    if (!putObjectRes)
+        FAIL() << std::format("Unable to put object: Code={}, Message={}", putObjectRes.error().Code, putObjectRes.error().Message);
+    ;
+
+    // Delete must return error
+    auto deleteBucketRes = client.DeleteBucket("bucket123");
+    if (deleteBucketRes.has_value() || deleteBucketRes.error().Code != "BucketNotEmpty")
+        FAIL() << "DeleteBucket should return 'Code=BucketNotEmpty'";
 }
+
 TEST_F(S3, DeleteEmptyBucket) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
     CreateBucketConfiguration config;
     CreateBucketInput options;
 
-	 auto createBucketRes = client.CreateBucket("test-empty-bucket", config, options);
-	 if (!createBucketRes && createBucketRes.error().Code != "BucketAlreadyOwnedByYou") {
+    auto createBucketRes = client.CreateBucket("test-empty-bucket", config, options);
+    if (!createBucketRes && createBucketRes.error().Code != "BucketAlreadyOwnedByYou") {
         FAIL() << std::format("DeleteEmptyBucket: Unable to create bucket: Code={}, Message={}",
             createBucketRes.error().Code,
             createBucketRes.error().Message);
-	 }
+    }
 
-	 // TODO(cristian): Implement overloading of = for client.* calls
-	 auto deleteBucket = client.DeleteBucket("test-empty-bucket");
-	 if(!deleteBucket) {
+    // TODO(cristian): Implement overloading of = for client.* calls ???
+    auto deleteBucket = client.DeleteBucket("test-empty-bucket");
+    if (!deleteBucket) {
         FAIL() << std::format("DeleteBucket failed: Code={}, Message={}",
             deleteBucket.error().Code,
             deleteBucket.error().Message);
-	 }
+    }
 }
+
 TEST_F(S3, DeleteBucketAndElementsWithPaginator) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+
+    // Create bucket
+    CreateBucketConfiguration config;
+    CreateBucketInput options;
+    auto createBucketRes = client.CreateBucket("test-bucket-321", config, options);
+    if (!createBucketRes && createBucketRes.error().Code != "BucketAlreadyOwnedByYou")
+        FAIL() << "Unable to create bucket";
+
+    // Add some dummy elements
+    for (int i = 0; i < 10; i++) {
+        auto putObjectRes = client.PutObject("test-bucket-321", std::format("path/to/file{}", i + 1), "Body contents");
+        if (!putObjectRes)
+            FAIL() << std::format("Unable to put object: Code={}, Message={}", putObjectRes.error().Code, putObjectRes.error().Message);
+    }
+
+    // Remove each object with the Paginator
+    ListObjectsPaginator paginator(client, "test-bucket-321", "", 4);
+    while (paginator.HasMorePages()) {
+        std::expected<ListObjectsResult, Error> page = paginator.NextPage();
+        if (!page) {
+            GTEST_FAIL();
+        }
+        for (const auto& obj : page->Contents) {
+            auto req = client.DeleteObject("test-bucket-321", obj.Key);
+            if (!req)
+                FAIL() << std::format("Unable to delete object. Code={}, Message={}", req.error().Code, req.error().Message);
+        }
+    }
+
+    // Delete must succeed now
+    auto deleteBucketRes = client.DeleteBucket("test-bucket-321");
+    if (!deleteBucketRes)
+        FAIL() << std::format("Unable to delete bucket. Code={}, Message={}", deleteBucketRes.error().Code, deleteBucketRes.error().Message);
 }
+

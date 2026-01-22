@@ -208,7 +208,7 @@ std::expected<DeleteObjectResult, Error> S3Client::DeleteObject(const std::strin
     if (options.versionId.has_value())
         url += std::format("?versionId={}", options.versionId.value());
 
-    HttpRequest req = Client.get(url).header("Host", getHostHeader(bucket));
+    HttpBodyRequest req = Client.del(url).header("Host", getHostHeader(bucket));
 
     // opt headers
     if (options.MFA.has_value())
