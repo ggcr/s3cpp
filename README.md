@@ -1,7 +1,18 @@
 # s3cpp
 
 > [!WARNING]
-> **WIP** Currently supporting ListObjectsV2, CreateBucket, DeleteBucket, GetObject, PutObject and DeleteObject on MinIO instances
+> **WIP** Currently supporting:
+>
+> - ListObjectsV2
+> - CreateBucket
+> - DeleteBucket
+> - HeadBucket
+> - GetObject
+> - PutObject
+> - DeleteObject 
+> - HeadObject 
+>
+> On MinIO instances
 
 A lightweight C++ client library for AWS S3, with zero 3rd party C++ dependencies (only libcurl and OpenSSL). Inspired by the AWS SDK for Go.
 
@@ -96,19 +107,8 @@ Checking if a bucket exists:
 #include <s3cpp/s3.h>
 
 bool BucketExists(S3Client& client, const std::string& bucketName) {
-    auto result = client.ListObjects(bucketName, {.MaxKeys = 1});
-
-    if (!result) {
-        // Check the Resource Error field
-        if (result.error().Resource == "/Does-not-exist") {
-            return false;
-        }
-        // Other errors
-        std::println("Error checking bucket: {}", result.error().Message);
-        return false;
-    }
-
-    return true;
+    auto result = client.HeadBucket(bucketName);
+    return result.has_value();
 }
 
 int main() {
@@ -182,4 +182,4 @@ $ docker run -d -p 9000:9000 -p 9001:9001 \
   server /data --console-address ":9001"
 ```
 
-The full test suite contains 56 tests
+The full test suite contains 60 tests

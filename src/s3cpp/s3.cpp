@@ -329,6 +329,134 @@ std::expected<void, Error> S3Client::DeleteBucket(const std::string& bucket, con
     return std::unexpected<Error>(deserializeError(XMLBody));
 }
 
+std::expected<HeadBucketResult, Error> S3Client::HeadBucket(const std::string& bucket, const HeadBucketInput& options) {
+    std::string url = buildURL(bucket);
+
+    HttpRequest req = Client.head(url).header("Host", getHostHeader(bucket));
+
+    // opt headers
+    if (options.ExpectedBucketOwner.has_value())
+        req.header("x-amz-expected-bucket-owner", std::move(options.ExpectedBucketOwner.value()));
+
+    Signer.sign(req);
+    HttpResponse res = req.execute();
+
+    if (res.status() == 200) {
+        return deserializeHeadBucketResult(res.headers());
+    }
+
+    // HEAD requests dont return error bodies, parse it from headers
+    Error error;
+    const auto& headers = res.headers();
+    if (headers.contains("X-Minio-Error-Code")) {
+        error.Code = headers.at("X-Minio-Error-Code");
+        if (headers.contains("X-Minio-Error-Desc")) {
+            error.Message = headers.at("X-Minio-Error-Desc");
+        }
+    } else if (headers.contains("x-amz-error-code")) {
+        error.Code = headers.at("x-amz-error-code");
+        if (headers.contains("x-amz-error-message")) {
+            error.Message = headers.at("x-amz-error-message");
+        }
+    } else {
+        error.Code = "UnknownError";
+        error.Message = std::format("HTTP {}", res.status());
+    }
+
+    return std::unexpected<Error>(error);
+}
+
+std::expected<HeadObjectResult, Error> S3Client::HeadObject(const std::string& bucket, const std::string& key, const HeadObjectInput& options) {
+    std::string url = buildURL(bucket) + std::format("/{}", key);
+
+    // Query params
+    bool firstParam = true;
+    if (options.partNumber.has_value()) {
+        url += std::format("{}part-number={}", firstParam ? "?" : "&", options.partNumber.value());
+        firstParam = false;
+    }
+    if (options.versionId.has_value()) {
+        url += std::format("{}versionId={}", firstParam ? "?" : "&", options.versionId.value());
+        firstParam = false;
+    }
+    if (options.response_cache_control.has_value()) {
+        url += std::format("{}response-cache-control={}", firstParam ? "?" : "&", options.response_cache_control.value());
+        firstParam = false;
+    }
+    if (options.response_content_disposition.has_value()) {
+        url += std::format("{}response-content-disposition={}", firstParam ? "?" : "&", options.response_content_disposition.value());
+        firstParam = false;
+    }
+    if (options.response_content_encoding.has_value()) {
+        url += std::format("{}response-content-encoding={}", firstParam ? "?" : "&", options.response_content_encoding.value());
+        firstParam = false;
+    }
+    if (options.response_content_language.has_value()) {
+        url += std::format("{}response-content-language={}", firstParam ? "?" : "&", options.response_content_language.value());
+        firstParam = false;
+    }
+    if (options.response_content_type.has_value()) {
+        url += std::format("{}response-content-type={}", firstParam ? "?" : "&", options.response_content_type.value());
+        firstParam = false;
+    }
+    if (options.response_expires.has_value()) {
+        url += std::format("{}response-expires={}", firstParam ? "?" : "&", options.response_expires.value());
+        firstParam = false;
+    }
+
+    HttpRequest req = Client.head(url).header("Host", getHostHeader(bucket));
+
+    // opt headers
+    if (options.If_Match.has_value())
+        req.header("If-Match", options.If_Match.value());
+    if (options.If_Modified_Since.has_value())
+        req.header("If-Modified-Since", options.If_Modified_Since.value());
+    if (options.If_None_Match.has_value())
+        req.header("If-None-Match", options.If_None_Match.value());
+    if (options.If_Unmodified_Since.has_value())
+        req.header("If-Unmodified-Since", options.If_Unmodified_Since.value());
+    if (options.Range.has_value())
+        req.header("Range", options.Range.value());
+    if (options.CheckSumMode.has_value())
+        req.header("x-amz-checksum-mode", options.CheckSumMode.value());
+    if (options.ExpectedBucketOwner.has_value())
+        req.header("x-amz-expected-bucket-owner", options.ExpectedBucketOwner.value());
+    if (options.RequestPayer.has_value())
+        req.header("x-amz-request-payer", options.RequestPayer.value());
+    if (options.SideEncryptionCustomerAlgorithm.has_value())
+        req.header("x-amz-server-side-encryption-customer-algorithm", options.SideEncryptionCustomerAlgorithm.value());
+    if (options.SideEncryptionCustomerKey.has_value())
+        req.header("x-amz-server-side-encryption-customer-key", options.SideEncryptionCustomerKey.value());
+    if (options.SideEncryptionCustomerKeyMD5.has_value())
+        req.header("x-amz-server-side-encryption-customer-key-MD5", options.SideEncryptionCustomerKeyMD5.value());
+
+    Signer.sign(req);
+    HttpResponse res = req.execute();
+
+    if (res.status() == 200) {
+        return deserializeHeadObjectResult(res.headers());
+    }
+
+    // HEAD requests dont return error bodies, parse it from headers
+    Error error;
+    const auto& headers = res.headers();
+    if (headers.contains("X-Minio-Error-Code")) {
+        error.Code = headers.at("X-Minio-Error-Code");
+        if (headers.contains("X-Minio-Error-Desc")) {
+            error.Message = headers.at("X-Minio-Error-Desc");
+        }
+    } else if (headers.contains("x-amz-error-code")) {
+        error.Code = headers.at("x-amz-error-code");
+        if (headers.contains("x-amz-error-message")) {
+            error.Message = headers.at("x-amz-error-message");
+        }
+    } else {
+        error.Code = "UnknownError";
+        error.Message = std::format("HTTP {}", res.status());
+    }
+    return std::unexpected<Error>(error);
+}
+
 Error S3Client::deserializeError(const std::vector<XMLNode>& nodes) {
     Error error;
 
@@ -423,6 +551,110 @@ std::expected<CreateBucketResult, Error> S3Client::deserializeCreateBucketResult
             result.Location = std::move(value);
         else if (header == "x-amz-bucket-arn")
             result.BucketARN = std::move(value);
+        else {
+            continue;
+        }
+    }
+    return result;
+}
+
+std::expected<HeadBucketResult, Error> S3Client::deserializeHeadBucketResult(const std::map<std::string, std::string, LowerCaseCompare>& headers) {
+    HeadBucketResult result;
+    for (const auto& [header, value] : headers) {
+        if (header == "x-amz-bucket-arn")
+            result.BucketARN = std::move(value);
+        else if (header == "x-amz-bucket-location-type")
+            result.BucketLocationType = std::move(value);
+        else if (header == "x-amz-bucket-location-name")
+            result.BucketLocationName = std::move(value);
+        else if (header == "x-amz-bucket-region")
+            result.BucketRegion = std::move(value);
+        else if (header == "x-amz-access-point-alias")
+            result.AccessPointAlias = std::move(value);
+        else {
+            continue;
+        }
+    }
+    return result;
+}
+
+std::expected<HeadObjectResult, Error> S3Client::deserializeHeadObjectResult(const std::map<std::string, std::string, LowerCaseCompare>& headers) {
+    HeadObjectResult result;
+    for (const auto& [header, value] : headers) {
+        if (header == "x-amz-delete-marker")
+            result.DeleteMarker = Parser.parseBool(value);
+        else if (header == "accept-ranges")
+            result.AcceptRanges = std::move(value);
+        else if (header == "x-amz-expiration")
+            result.Expiration = std::move(value);
+        else if (header == "x-amz-restore")
+            result.Restore = std::move(value);
+        else if (header == "x-amz-archive-status")
+            result.ArchiveStatus = std::move(value);
+        else if (header == "Last-Modified")
+            result.LastModified = std::move(value);
+        else if (header == "Content-Length")
+            result.ContentLength = Parser.parseNumber<int64_t>(value);
+        else if (header == "x-amz-checksum-crc32")
+            result.ChecksumCRC32 = std::move(value);
+        else if (header == "x-amz-checksum-crc32c")
+            result.ChecksumCRC32C = std::move(value);
+        else if (header == "x-amz-checksum-crc64nvme")
+            result.ChecksumCRC64NVME = std::move(value);
+        else if (header == "x-amz-checksum-sha1")
+            result.ChecksumSHA1 = std::move(value);
+        else if (header == "x-amz-checksum-sha256")
+            result.ChecksumSHA256 = std::move(value);
+        else if (header == "x-amz-checksum-type")
+            result.ChecksumType = std::move(value);
+        else if (header == "ETag")
+            result.ETag = std::move(value);
+        else if (header == "x-amz-missing-meta")
+            result.MissingMeta = Parser.parseNumber<int>(value);
+        else if (header == "x-amz-version-id")
+            result.VersionId = std::move(value);
+        else if (header == "Cache-Control")
+            result.CacheControl = std::move(value);
+        else if (header == "Content-Disposition")
+            result.ContentDisposition = std::move(value);
+        else if (header == "Content-Encoding")
+            result.ContentEncoding = std::move(value);
+        else if (header == "Content-Language")
+            result.ContentLanguage = std::move(value);
+        else if (header == "Content-Type")
+            result.ContentType = std::move(value);
+        else if (header == "Content-Range")
+            result.ContentRange = std::move(value);
+        else if (header == "Expires")
+            result.Expires = std::move(value);
+        else if (header == "x-amz-website-redirect-location")
+            result.WebsiteRedirectLocation = std::move(value);
+        else if (header == "x-amz-server-side-encryption")
+            result.ServerSideEncryption = std::move(value);
+        else if (header == "x-amz-server-side-encryption-customer-algorithm")
+            result.SSECustomerAlgorithm = std::move(value);
+        else if (header == "x-amz-server-side-encryption-customer-key-MD5")
+            result.SSECustomerKeyMD5 = std::move(value);
+        else if (header == "x-amz-server-side-encryption-aws-kms-key-id")
+            result.SSEKMSKeyId = std::move(value);
+        else if (header == "x-amz-server-side-encryption-bucket-key-enabled")
+            result.BucketKeyEnabled = Parser.parseBool(value);
+        else if (header == "x-amz-storage-class")
+            result.StorageClass = std::move(value);
+        else if (header == "x-amz-request-charged")
+            result.RequestCharged = std::move(value);
+        else if (header == "x-amz-replication-status")
+            result.ReplicationStatus = std::move(value);
+        else if (header == "x-amz-mp-parts-count")
+            result.PartsCount = Parser.parseNumber<int>(value);
+        else if (header == "x-amz-tagging-count")
+            result.TagCount = Parser.parseNumber<int>(value);
+        else if (header == "x-amz-object-lock-mode")
+            result.ObjectLockMode = std::move(value);
+        else if (header == "x-amz-object-lock-retain-until-date")
+            result.ObjectLockRetainUntilDate = std::move(value);
+        else if (header == "x-amz-object-lock-legal-hold")
+            result.ObjectLockLegalHoldStatus = std::move(value);
         else {
             continue;
         }

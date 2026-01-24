@@ -156,7 +156,7 @@ struct CreateBucketConfiguration {
 };
 
 struct CreateBucketInput {
-    std::optional<std::string> ACL; 
+    std::optional<std::string> ACL;
     std::optional<bool> ObjectLockEnabledForBucket;
     std::optional<std::string> GrantFullControl;
     std::optional<std::string> GrantRead;
@@ -167,7 +167,7 @@ struct CreateBucketInput {
 };
 
 struct CreateBucketResult {
-    std::string Location; 
+    std::string Location;
     std::optional<std::string> BucketARN;
 };
 
@@ -183,13 +183,87 @@ struct DeleteObjectInput {
 };
 
 struct DeleteObjectResult {
-    std::string versionId; 
-    std::string RequestCharged; 
-    std::string DeleteMarker; 
+    std::string versionId;
+    std::string RequestCharged;
+    std::string DeleteMarker;
 };
 
 struct DeleteBucketInput {
-	std::optional<std::string> ExpectedBucketOwner;
+    std::optional<std::string> ExpectedBucketOwner;
+};
+
+struct HeadBucketResult {
+    std::string BucketARN;
+    std::string BucketLocationType;
+    std::string BucketLocationName;
+    std::string BucketRegion;
+    std::string AccessPointAlias;
+};
+
+struct HeadBucketInput {
+    std::optional<std::string> ExpectedBucketOwner;
+};
+
+struct HeadObjectResult {
+    bool DeleteMarker;
+    std::string AcceptRanges;
+    std::string Expiration;
+    std::string Restore;
+    std::string ArchiveStatus;
+    std::string LastModified;
+    int64_t ContentLength;
+    std::string ChecksumCRC32;
+    std::string ChecksumCRC32C;
+    std::string ChecksumCRC64NVME;
+    std::string ChecksumSHA1;
+    std::string ChecksumSHA256;
+    std::string ChecksumType;
+    std::string ETag;
+    int MissingMeta;
+    std::string VersionId;
+    std::string CacheControl;
+    std::string ContentDisposition;
+    std::string ContentEncoding;
+    std::string ContentLanguage;
+    std::string ContentType;
+    std::string ContentRange;
+    std::string Expires;
+    std::string WebsiteRedirectLocation;
+    std::string ServerSideEncryption;
+    std::string SSECustomerAlgorithm;
+    std::string SSECustomerKeyMD5;
+    std::string SSEKMSKeyId;
+    bool BucketKeyEnabled;
+    std::string StorageClass;
+    std::string RequestCharged;
+    std::string ReplicationStatus;
+    int PartsCount;
+    int TagCount;
+    std::string ObjectLockMode;
+    std::string ObjectLockRetainUntilDate;
+    std::string ObjectLockLegalHoldStatus;
+};
+
+struct HeadObjectInput {
+    std::optional<std::string> If_Match;
+    std::optional<std::string> If_Modified_Since;
+    std::optional<std::string> If_None_Match;
+    std::optional<std::string> If_Unmodified_Since;
+    std::optional<int> partNumber;
+    std::optional<std::string> Range; // e.g. bytes=0-9
+    std::optional<std::string> response_cache_control;
+    std::optional<std::string> response_content_disposition;
+    std::optional<std::string> response_content_encoding;
+    std::optional<std::string> response_content_language;
+    std::optional<std::string> response_content_type;
+    std::optional<std::string> response_expires;
+    std::optional<std::string> versionId;
+    std::optional<std::string> CheckSumMode;
+    std::optional<std::string> ExpectedBucketOwner;
+    std::optional<std::string> RequestPayer;
+    std::optional<std::string> SideEncryptionCustomerAlgorithm;
+    std::optional<std::string> SideEncryptionCustomerKey;
+    std::optional<std::string> SideEncryptionCustomerKeyMD5;
 };
 
 // REST generic error

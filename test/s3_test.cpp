@@ -412,3 +412,44 @@ TEST_F(S3, DeleteBucketAndElementsWithPaginator) {
         FAIL() << std::format("Unable to delete bucket. Code={}, Message={}", deleteBucketRes.error().Code, deleteBucketRes.error().Message);
 }
 
+TEST_F(S3, HeadBucketExists) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+
+    // Premise is that "my-bucket" already exists and contains 10k objects
+    auto res = client.HeadBucket("my-bucket");
+    if (!res)
+        FAIL() << std::format("HeadBucket request failed for an existing bucket. Code={}, Message={}", res.error().Code, res.error().Message);
+}
+
+TEST_F(S3, HeadBucketNotExists) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+
+    auto res = client.HeadBucket("jhshdjksfjabhfndfds");
+    if (res.has_value())
+        FAIL() << std::format("HeadBucket request succeeded when it should have failed. Code={}, Message={}", res.error().Code, res.error().Message);
+
+    EXPECT_EQ(res.error().Code, "NoSuchBucket");
+}
+
+TEST_F(S3, HeadObjectExists) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+
+    // Premise is that "my-bucket" already exists and contains "path/to/file_1.txt"
+    auto res = client.HeadObject("my-bucket", "path/to/file_1.txt");
+    if (!res)
+        FAIL() << std::format("HeadObject request failed for an existing object. Code={}, Message={}", res.error().Code, res.error().Message);
+
+    EXPECT_FALSE(res->ETag.empty());
+    EXPECT_GT(res->ContentLength, 0);
+    EXPECT_FALSE(res->LastModified.empty());
+}
+
+TEST_F(S3, HeadObjectNotExists) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+
+    auto res = client.HeadObject("my-bucket", "does/not/exist/file.txt");
+    if (res.has_value())
+        FAIL() << "HeadObject request succeeded when it should have failed for non-existent object";
+
+    EXPECT_EQ(res.error().Code, "NoSuchKey");
+}
