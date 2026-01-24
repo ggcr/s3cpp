@@ -176,8 +176,8 @@ Some tests require a local MinIO container to be running:
 ```bash
 $ docker build .
 $ docker run -d -p 9000:9000 -p 9001:9001 \
-  -e "MINIO_ROOT_USER=access_key" \
-  -e "MINIO_ROOT_PASSWORD=secret_key" \
+  -e "MINIO_ROOT_USER=minio_access" \
+  -e "MINIO_ROOT_PASSWORD=minio_secret" \
   s3cpp-minio:latest \
   server /data --console-address ":9001"
 ```
