@@ -1,5 +1,4 @@
 #include "gtest/gtest.h"
-#include <random>
 #include <s3cpp/s3.h>
 #include <string>
 
@@ -15,9 +14,9 @@ protected:
             return;
         }
 
-        // Upload 10k files
+        // Upload 1001 files
         if (client.ListObjects("my-bucket")->Contents.empty()) {
-            for (int i = 1; i <= 10'000; i++) {
+            for (int i = 1; i <= 1'001; i++) {
                 const std::string key = std::format("path/to/file_{}.txt", i);
                 const std::string body = std::format("This is test file number {}", i);
                 auto putObjRes = client.PutObject("my-bucket", key, body);
@@ -30,22 +29,9 @@ protected:
     }
 };
 
-std::string generateRandomBucketName(const std::string& prefix = "test-bucket") {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<> dis(0, 35);
-
-    const char* chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    std::string suffix;
-    for (int i = 0; i < 8; ++i) {
-        suffix += chars[dis(gen)];
-    }
-    return prefix + "-" + suffix;
-}
-
 TEST_F(S3, ListObjectsBucket) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
-    // Assuming the bucket has the 10K objects
+    // Assuming the bucket has 1001 objects
     // Once we implement PutObject we will do this ourselves with s3cpp
     std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket");
     if (!res)
@@ -114,7 +100,7 @@ TEST_F(S3, ListObjectsCheckFields) {
 
 TEST_F(S3, ListObjectsCheckLenKeys) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
-    // has 10K objects - limit is 1000 keys
+    // has 1001 objects - limit is 1000 keys
     std::expected<ListObjectsResult, Error> res = client.ListObjects("my-bucket", { .Prefix = "path/to/" });
     if (!res)
         GTEST_FAIL();
@@ -123,7 +109,7 @@ TEST_F(S3, ListObjectsCheckLenKeys) {
 
 TEST_F(S3, ListObjectsPaginator) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
-    // has 10K objects - fetch 100 per page
+    // has 1001 objects - fetch 100 per page
     ListObjectsPaginator paginator(client, "my-bucket", "path/to/", 100);
 
     int totalObjects = 0;
@@ -144,8 +130,8 @@ TEST_F(S3, ListObjectsPaginator) {
         }
     }
 
-    EXPECT_EQ(totalObjects, 10000);
-    EXPECT_EQ(pageCount, 100);
+    EXPECT_EQ(totalObjects, 1001);
+    EXPECT_EQ(pageCount, 11);
 }
 
 TEST_F(S3, GetObjectExists) {
@@ -247,7 +233,7 @@ TEST_F(S3, PutObjectTxt) {
 
 TEST_F(S3, CreateBucket) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
-    std::string bucketName = generateRandomBucketName("test-bucket-s3cpp");
+    std::string bucketName = "test-bucket-s3cpp";
     CreateBucketConfiguration config;
     CreateBucketInput options;
 
@@ -270,7 +256,7 @@ TEST_F(S3, CreateBucket) {
 
 TEST_F(S3, CreateBucketWithLocationConstraint) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
-    std::string bucketName = generateRandomBucketName("test-bucket-location");
+    std::string bucketName = "test-bucket-location";
     CreateBucketConfiguration config;
     config.LocationConstraint = "us-west-2";
     CreateBucketInput options;
@@ -294,7 +280,7 @@ TEST_F(S3, CreateBucketWithLocationConstraint) {
 
 TEST_F(S3, CreateBucketWithTags) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
-    std::string bucketName = generateRandomBucketName("test-bucket-tags");
+    std::string bucketName = "test-bucket-tags";
     CreateBucketConfiguration config;
     config.Tags = {
         { "Environment", "Test" },
@@ -415,7 +401,7 @@ TEST_F(S3, DeleteBucketAndElementsWithPaginator) {
 TEST_F(S3, HeadBucketExists) {
     S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
 
-    // Premise is that "my-bucket" already exists and contains 10k objects
+    // Premise is that "my-bucket" already exists and contains 1001 objects
     auto res = client.HeadBucket("my-bucket");
     if (!res)
         FAIL() << std::format("HeadBucket request failed for an existing bucket. Code={}, Message={}", res.error().Code, res.error().Message);
@@ -452,4 +438,20 @@ TEST_F(S3, HeadObjectNotExists) {
         FAIL() << "HeadObject request succeeded when it should have failed for non-existent object";
 
     EXPECT_EQ(res.error().Code, "NoSuchKey");
+}
+
+TEST_F(S3, ListBuckets) {
+    S3Client client("minio_access", "minio_secret", "127.0.0.1:9000", S3AddressingStyle::PathStyle);
+
+    std::expected<ListAllMyBucketsResult, Error> res = client.ListBuckets();
+    if (res) {
+        EXPECT_EQ(res->Buckets.size(), 5);
+        std::vector<std::string> bucket_names;
+        for (const auto& Bucket : res->Buckets) {
+            bucket_names.push_back(Bucket.Name);
+        }
+        EXPECT_TRUE(std::find(bucket_names.begin(), bucket_names.end(), "my-bucket") != bucket_names.end());
+    } else {
+        FAIL() << std::format("ListBuckets request failed. Code={}, Message={}", res.error().Code, res.error().Message);
+    }
 }

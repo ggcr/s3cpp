@@ -3,7 +3,7 @@
 > [!WARNING]
 > **WIP** Currently supporting:
 >
-> - ListObjectsV2
+> - ListBuckets, ListObjectsV2
 > - CreateBucket, DeleteBucket, HeadBucket
 > - GetObject, PutObject, DeleteObject, HeadObject
 >
@@ -36,6 +36,28 @@ int main() {
     if (!result) {
         std::println("Error: {}", result.error().Message);
         return 1;
+    }
+    return 0;
+}
+```
+
+List all buckets:
+
+```cpp
+#include <s3cpp/s3.h>
+
+int main() {
+    S3Client client("access_key", "secret_key");
+
+    auto result = client.ListBuckets();
+
+    if (!result) {
+        std::println("Error: {}", result.error().Message);
+        return 1;
+    }
+
+    for (const auto& bucket : result->Buckets) {
+        std::println("Bucket: {}, Created: {}", bucket.Name, bucket.CreationDate);
     }
     return 0;
 }

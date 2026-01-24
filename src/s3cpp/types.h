@@ -77,6 +77,30 @@ struct ListObjectsResult {
     std::string StartAfter;
 };
 
+struct ListBucketsInput {
+    std::optional<std::string> BucketRegion;
+    std::optional<std::string> ContinuationToken;
+    std::optional<int> MaxBuckets;
+    std::optional<std::string> Prefix;
+};
+
+struct Bucket {
+    std::string BucketARN;
+    std::string BucketRegion;
+    std::string CreationDate;
+    std::string Name;
+};
+
+struct ListAllMyBucketsResult {
+    std::vector<Bucket> Buckets;
+    struct Owner_ {
+        std::string DisplayName;
+        std::string ID;
+    } Owner;
+    std::string ContinuationToken;
+    std::string Prefix;
+};
+
 struct PutObjectInput {
     std::optional<std::string> CacheControl;
     std::optional<std::string> ContentDisposition;

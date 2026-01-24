@@ -1,5 +1,6 @@
 #include "s3cpp/httpclient.h"
 #include <expected>
+#include <print>
 #include <s3cpp/s3.h>
 
 std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string& bucket, const ListObjectsInput& options) {
@@ -40,12 +41,49 @@ std::expected<ListObjectsResult, Error> S3Client::ListObjects(const std::string&
     const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
 
     if (res.is_ok()) {
-        return deserializeListBucketResult(XMLBody, maxKeys);
+        return deserializeListObjectsResult(XMLBody, maxKeys);
     }
     return std::unexpected<Error>(deserializeError(XMLBody));
 }
 
-std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
+std::expected<ListAllMyBucketsResult, Error> S3Client::ListBuckets(const ListBucketsInput& options) {
+    std::string url = (addressing_style_ == S3AddressingStyle::VirtualHosted)
+        ? std::format("https://{}/", endpoint_)
+        : std::format("http://{}/", endpoint_);
+
+    // Build URL with query parameters
+    bool firstParam = true;
+    if (options.BucketRegion.has_value()) {
+        url += std::format("{}bucket-region={}", firstParam ? "?" : "&", options.BucketRegion.value());
+        firstParam = false;
+    }
+    if (options.ContinuationToken.has_value()) {
+        url += std::format("{}continuation-token={}", firstParam ? "?" : "&", options.ContinuationToken.value());
+        firstParam = false;
+    }
+    if (options.MaxBuckets.has_value()) {
+        url += std::format("{}max-buckets={}", firstParam ? "?" : "&", options.MaxBuckets.value());
+        firstParam = false;
+    }
+    if (options.Prefix.has_value()) {
+        url += std::format("{}prefix={}", firstParam ? "?" : "&", options.Prefix.value());
+        firstParam = false;
+    }
+
+    HttpRequest req = Client.get(url).header("Host", endpoint_);
+
+    Signer.sign(req);
+    HttpResponse res = req.execute();
+
+    const std::vector<XMLNode>& XMLBody = Parser.parse(res.body());
+
+    if (res.is_ok()) {
+        return deserializeListBucketsResult(XMLBody, options.MaxBuckets);
+    }
+    return std::unexpected<Error>(deserializeError(XMLBody));
+}
+
+std::expected<ListObjectsResult, Error> S3Client::deserializeListObjectsResult(const std::vector<XMLNode>& nodes, const int maxKeys) {
     ListObjectsResult result;
     result.Contents.reserve(maxKeys);
     result.CommonPrefixes.reserve(maxKeys);
@@ -150,6 +188,69 @@ std::expected<ListObjectsResult, Error> S3Client::deserializeListBucketResult(co
     }
     if (!result.CommonPrefixes.empty() && result.CommonPrefixes[0].Prefix.empty()) {
         result.CommonPrefixes.erase(result.CommonPrefixes.begin());
+    }
+
+    return result;
+}
+
+std::expected<ListAllMyBucketsResult, Error> S3Client::deserializeListBucketsResult(const std::vector<XMLNode>& nodes, std::optional<int> maxBuckets) {
+    ListAllMyBucketsResult result;
+    if (maxBuckets.has_value())
+        result.Buckets.reserve(maxBuckets.value());
+    result.Buckets.push_back(Bucket {});
+
+    int bucketsIdx = 0;
+
+    // To keep track when we need to append an element
+    std::vector<std::string_view> seenBuckets;
+
+    for (const auto& node : nodes) {
+        /* Sigh... no reflection */
+
+        // Check if we've seen this tag before in the current object
+        if (node.tag.contains("ListAllMyBucketsResult.Buckets.")) {
+            if (std::find(seenBuckets.begin(), seenBuckets.end(), node.tag) != seenBuckets.end()) {
+                result.Buckets.push_back(Bucket {});
+                seenBuckets.clear();
+                bucketsIdx++;
+            }
+        }
+
+        if (node.tag == "ListAllMyBucketsResult.Buckets.Bucket.BucketArn") {
+            result.Buckets[bucketsIdx].BucketARN = std::move(node.value);
+        } else if (node.tag == "ListAllMyBucketsResult.Buckets.Bucket.BucketRegion") {
+            result.Buckets[bucketsIdx].BucketRegion = std::move(node.value);
+        } else if (node.tag == "ListAllMyBucketsResult.Buckets.Bucket.CreationDate") {
+            result.Buckets[bucketsIdx].CreationDate = std::move(node.value);
+        } else if (node.tag == "ListAllMyBucketsResult.Buckets.Bucket.Name") {
+            result.Buckets[bucketsIdx].Name = std::move(node.value);
+        } else if (node.tag == "ListAllMyBucketsResult.Owner.DisplayName") {
+            result.Owner.DisplayName = std::move(node.value);
+        } else if (node.tag == "ListAllMyBucketsResult.Owner.ID") {
+            result.Owner.ID = std::move(node.value);
+        } else if (node.tag == "ListAllMyBucketsResult.ContinuationToken") {
+            result.ContinuationToken = std::move(node.value);
+        } else if (node.tag == "ListAllMyBucketsResult.Prefix") {
+            result.Prefix = std::move(node.value);
+        } else {
+            // Detect and parse error
+            // Note(cristian): This fallback should not be needed as we have
+            // the HTTP status codes for this, however, I like it
+            if (node.tag.substr(0, 6) == "Error.") {
+                return std::unexpected<Error>(deserializeError(nodes));
+            }
+            throw std::runtime_error(std::format("No case for ListAllMyBucketsResult response found for: {}", node.tag));
+        }
+
+        // Add already seen fields
+        if (node.tag.contains("ListAllMyBucketsResult.Buckets")) {
+            seenBuckets.push_back(node.tag);
+        }
+    }
+
+    // Remove the initial empty object if it was never populated
+    if (!result.Buckets.empty() && result.Buckets[0].Name.empty()) {
+        result.Buckets.erase(result.Buckets.begin());
     }
 
     return result;
