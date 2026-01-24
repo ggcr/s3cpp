@@ -1,7 +1,7 @@
 # s3cpp
 
 > [!WARNING]
-> **WIP** Currently supports only ListObjectsV2, GetObject, PutObject and CreateBucket
+> **WIP** Currently supporting ListObjectsV2, CreateBucket, DeleteBucket, GetObject, PutObject and DeleteObject on MinIO instances
 
 A lightweight C++ client library for AWS S3, with zero 3rd party C++ dependencies (only libcurl and OpenSSL). Inspired by the AWS SDK for Go.
 
@@ -21,7 +21,7 @@ Create a bucket:
 #include <s3cpp/s3.h>
 
 int main() {
-    S3Client client("minio_access", "minio_secret");
+    S3Client client("access_key", "secret_key");
 
     auto result = client.CreateBucket("my-bucket", {
         .LocationConstraint = "us-east-1"
@@ -41,7 +41,7 @@ List objects in a bucket:
 #include <s3cpp/s3.h>
 
 int main() {
-    S3Client client("minio_access", "minio_secret");
+    S3Client client("access_key", "secret_key");
 
     // List 100 objects with a prefix
     auto result = client.ListObjects("my-bucket", {
@@ -67,7 +67,7 @@ For buckets with many objects, use the paginator to automatically handle continu
 #include <s3cpp/s3.h>
 
 int main() {
-    S3Client client("minio_access", "minio_secret");
+    S3Client client("access_key", "secret_key");
     ListObjectsPaginator paginator(client, "my-bucket", "path/to/", 100);
 
     int totalObjects = 0;
@@ -112,7 +112,7 @@ bool BucketExists(S3Client& client, const std::string& bucketName) {
 }
 
 int main() {
-    S3Client client("minio_access", "minio_secret");
+    S3Client client("access_key", "secret_key");
     
     if (BucketExists(client, "my-bucket")) {
         std::println("Bucket exists");
@@ -130,7 +130,7 @@ Delete a non-empty bucket:
 #include <s3cpp/s3.h>
 
 int main() {
-    S3Client client("minio_access", "minio_secret");
+    S3Client client("access_key", "secret_key");
 
     // To delete a bucket we first need to delete all its contents
     ListObjectsPaginator paginator(client, "my-bucket", "", 1000);
@@ -176,10 +176,10 @@ Some tests require a local MinIO container to be running:
 ```bash
 $ docker build .
 $ docker run -d -p 9000:9000 -p 9001:9001 \
-  -e "MINIO_ROOT_USER=minio_access" \
-  -e "MINIO_ROOT_PASSWORD=minio_secret" \
+  -e "MINIO_ROOT_USER=access_key" \
+  -e "MINIO_ROOT_PASSWORD=secret_key" \
   s3cpp-minio:latest \
   server /data --console-address ":9001"
 ```
 
-The full test suite contains 54 tests
+The full test suite contains 56 tests
