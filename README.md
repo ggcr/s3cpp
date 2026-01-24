@@ -3,12 +3,9 @@
 > [!WARNING]
 > **WIP** Currently supporting:
 >
-> | List Operations | Bucket Operations | Object Operations |
-> | --------------- | ----------------- | ----------------- |
-> | ListObjectsV2   | CreateBucket      | GetObject         |
-> |                 | DeleteBucket      | PutObject         |
-> |                 | HeadBucket        | DeleteObject      |
-> |                 |                   | HeadObject        |
+> - ListObjectsV2
+> - CreateBucket, DeleteBucket, HeadBucket
+> - GetObject, PutObject, DeleteObject, HeadObject
 >
 > On MinIO instances
 
