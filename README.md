@@ -4,6 +4,9 @@ A lightweight C++ client library for AWS S3 with zero deps (only libcurl and Ope
 
 For a performance comparison against other AWS SDKs on a small set of sequential tasks, see [benchmark/README.md](benchmark/README.md)
 
+> [!NOTE]
+> This is a project I did in my spare time to learn and explore modern C++ :) Not production-ready
+
 ## Architecture
 
 Each S3 Client is organized onto modular components:
