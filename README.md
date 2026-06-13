@@ -2,6 +2,10 @@
 
 A lightweight C++ client library for AWS S3 with zero deps (only libcurl and OpenSSL)
 
+<img width="803" height="304" alt="benchmark" src="https://github.com/user-attachments/assets/dcb4d1c7-5236-46e2-be37-4dd059ba1773" />
+
+
+
 For a performance comparison against other AWS SDKs on a small set of sequential tasks, see [benchmark/README.md](benchmark/README.md)
 
 > [!NOTE]
