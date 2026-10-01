@@ -33,7 +33,7 @@ AWS_SDK_CPP_INCLUDES := $(foreach dep,$(AWS_SDK_CPP_DEPS),-I$(shell brew --prefi
 GOOGLE_BENCHMARK_PREFIX := $(shell brew --prefix google-benchmark)
 
 $(CPP_LIB): | $(BUILD_DIR)
-	c++ -std=c++26 -shared -fPIC \
+	c++ -std=c++23 -shared -fPIC \
 		$(AWS_SDK_CPP_INCLUDES) \
 		aws-sdk-cpp/task.cpp \
 		-o $@ \
@@ -45,23 +45,23 @@ $(RUST_LIB): | $(BUILD_DIR)
 	mv ./aws-sdk-rust/target/release/librust$(so_ext) $(BUILD_DIR)/.
 
 $(S3CPP_LIB): | $(BUILD_DIR)
-	cmake -S .. -B ../build-release -DCMAKE_BUILD_TYPE=Release
-	cmake --build ../build-release
-	c++ -std=c++26 -shared -fPIC -I../src s3cpp/task.cpp -o $(BUILD_DIR)/libs3cpp$(so_ext) \
+	cmake -S .. -B ../build-release -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+	cmake --build ../build-release --target s3cpplib
+	c++ -std=c++23 -shared -fPIC -I../src s3cpp/task.cpp -o $(BUILD_DIR)/libs3cpp$(so_ext) \
 		../build-release/lib/libs3cpp.a $(shell pkg-config --libs libcurl libcrypto)
 
 $(IMPLEMENTATIONS_INC): $(GO_LIB) $(CPP_LIB) $(RUST_LIB) $(S3CPP_LIB) | $(BUILD_DIR)
 	printf '"./%s",\n' $(GO_LIB) $(CPP_LIB) $(RUST_LIB) $(S3CPP_LIB) > $@
 
 bench: $(IMPLEMENTATIONS_INC) $(GO_LIB) $(CPP_LIB) $(RUST_LIB) $(S3CPP_LIB)  | $(BUILD_DIR)
-	c++ -std=c++26 -I../src benchmark.cpp -o $(BUILD_DIR)/bench \
+	c++ -std=c++23 -I../src benchmark.cpp -o $(BUILD_DIR)/bench \
 	    -I$(GOOGLE_BENCHMARK_PREFIX)/include -L$(GOOGLE_BENCHMARK_PREFIX)/lib \
 	    ../build/lib/libs3cpp.a -lbenchmark $(shell pkg-config --libs libcurl libcrypto)
 	./$(BUILD_DIR)/bench
 
 
 test: $(IMPLEMENTATIONS_INC) $(GO_LIB) $(S3CPP_LIB) $(RUST_LIB) | $(BUILD_DIR)
-	c++ -std=c++26 -I../src test.cpp -o $(BUILD_DIR)/test ../build-release/lib/libs3cpp.a $(shell pkg-config --libs libcurl libcrypto)
+	c++ -std=c++23 -I../src test.cpp -o $(BUILD_DIR)/test ../build-release/lib/libs3cpp.a $(shell pkg-config --libs libcurl libcrypto)
 	./$(BUILD_DIR)/test
 
 
