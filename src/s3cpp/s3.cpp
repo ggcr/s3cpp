@@ -13,7 +13,7 @@ bool Ping(const std::string & endpoint_) {
   HttpClient Client = HttpClient{};
   AWSSigV4Signer Signer = AWSSigV4Signer{"", ""};
 
-  HttpRequest req = Client.get(endpoint_).timeout(1);
+  HttpRequest req = Client.get(endpoint_).timeout(5);
   Signer.sign(req);
 
   auto res = req.execute();
