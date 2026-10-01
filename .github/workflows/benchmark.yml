@@ -22,7 +22,7 @@ jobs:
           s3cpp-minio:latest \
           server /data --console-address ":9001"
 
-        timeout 30 bash -c 'until curl -f http://localhost:9000/minio/health/live 2>/dev/null; do sleep 1; done'
+        timeout 60 bash -c 'until curl -fsS http://localhost:9000/minio/health/ready >/dev/null 2>&1; do sleep 1; done'
 
     - name: Install GCC 14
       run: |
@@ -30,7 +30,7 @@ jobs:
         sudo apt-get install -y software-properties-common
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
         sudo apt-get update
-        sudo apt-get install -y gcc-14 g++-14 cmake libcurl4-openssl-dev pkg-config
+        sudo apt-get install -y gcc-14 g++-14 cmake libcurl4-openssl-dev libssl-dev pkg-config
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
 
@@ -57,6 +57,10 @@ jobs:
     - name: Run benchmarks
       working-directory: benchmark
       run: make bench
+
+    - name: MinIO logs
+      if: failure()
+      run: docker logs minio-server
 
     - name: Stop MinIO server
       if: always()
